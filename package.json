@@ -16,10 +16,12 @@
     "@react-navigation/native-stack": "^7.0.0",
     "axios": "^1.6.2",
     "expo": "~54.0.33",
+    "expo-location": "~19.0.8",
     "expo-splash-screen": "~0.29.0",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-maps": "1.20.1",
     "react-native-safe-area-context": "4.14.0",
     "react-native-screens": "~4.4.0",
     "zustand": "^4.4.7"
