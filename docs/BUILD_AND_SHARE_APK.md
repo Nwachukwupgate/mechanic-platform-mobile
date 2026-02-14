@@ -181,8 +181,51 @@ Whenever you change the code and want a **new APK** to send:
 
 ## If something goes wrong
 
+### “Unexpected end of ZLIB input stream” during Android Studio / SDK install
+
+This means an SDK package (e.g. **Google Play Intel x86_64 Atom System Image**) downloaded incompletely or got corrupted. Fix it like this:
+
+1. **Quit Android Studio** completely.
+
+2. **Remove the corrupted SDK package** so it can be re-downloaded. In **Terminal**, run:
+
+   ```bash
+   rm -rf ~/Library/Android/sdk/system-images/android-*/*/x86_64*
+   ```
+
+   That removes the system image that failed. If you prefer to remove only the “Google Play” one:
+
+   ```bash
+   rm -rf ~/Library/Android/sdk/system-images/android-*/google_apis_playstore/x86_64
+   ```
+
+3. **Clear Android Studio’s download cache** (optional but often helps):
+
+   ```bash
+   rm -rf ~/Library/Android/sdk/.temp
+   rm -rf ~/Library/Caches/Google/AndroidStudio*
+   ```
+
+4. **Reopen Android Studio.**
+
+5. Open **SDK Manager**: **Settings** (or **Preferences**) → **Languages & Frameworks** → **Android SDK** (or **Appearance & Behavior** → **System Settings** → **Android SDK**).
+
+6. In the **SDK Platforms** or **SDK Tools** tab, **uncheck** “Google Play Intel x86_64 Atom System Image” if it’s checked (you don’t need it just to build an APK for a real device). Click **Apply** and finish.
+
+   - If you **do** want that image (for the emulator), leave it checked and click **Apply** so it downloads again. Use a **stable Wi‑Fi** connection and don’t put the Mac to sleep until it finishes.
+
+7. For **building an APK to test on a real phone**, you only need:
+   - **Android SDK Platform** (e.g. latest or the one your project uses)
+   - **Android SDK Build-Tools**
+   - **Android SDK Command-line Tools**
+
+   You can **skip** system images and emulators if you’re only building APKs for your client.
+
+---
+
 | Problem | What to try |
 |--------|-------------|
+| **ZLIB / “Unexpected end of ZLIB input stream”** | See section above: quit Studio, remove corrupted package and cache, reopen SDK Manager, re-download or uncheck the failing component. |
 | “ANDROID_HOME not set” | In Terminal: `echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> ~/.zshrc` then `source ~/.zshrc`. |
 | “sdkmanager not found” | Install Android Studio and complete Part 1, then run the license command again. |
 | “Build failed” (Gradle) | Run `cd android && ./gradlew clean && ./gradlew assembleRelease` then try again. |
