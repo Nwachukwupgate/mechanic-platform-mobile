@@ -2,6 +2,21 @@
 
 Expo (React Native) app for the mechanic platform.
 
+## Building an APK for your client
+
+**New to this?** Follow the full step-by-step guide (includes Android Studio setup and how to share the APK):
+
+- **[docs/BUILD_AND_SHARE_APK.md](docs/BUILD_AND_SHARE_APK.md)** – Install Android Studio, build the APK, and share it with your client.
+
+Quick build (after Android Studio is set up):
+
+```bash
+npm install
+npx expo prebuild --platform android
+cd android && ./gradlew assembleRelease && cd ..
+# APK: android/app/build/outputs/apk/release/app-release.apk
+```
+
 ## Environment variables
 
 Create a `.env` file in the project root with:
