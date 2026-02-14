@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { setOnboardingComplete } from '../../utils/onboarding'
 import { colors } from '../../theme/colors'
 import { Button } from '../../components/Button'
+import { MapBackground } from '../../components/MapBackground'
 
 const { width } = Dimensions.get('window')
 
@@ -40,7 +41,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   }
 
   return (
-    <View style={styles.container}>
+    <MapBackground variant="light" style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconWrap}>
           <Ionicons name={slide.icon} size={72} color={colors.primary[600]} />
@@ -68,14 +69,13 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </MapBackground>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 48,

@@ -56,6 +56,11 @@ export const mechanicsAPI = {
   getProfile: () => api.get('/mechanics/me/profile'),
   updateProfile: (d: object) => api.put('/mechanics/me/profile', d),
   updateAvailability: (a: boolean) => api.put('/mechanics/me/availability', { availability: a }),
+  listBankAccounts: () => api.get<Array<{ id: string; bankCode: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean }>>('/mechanics/me/bank-accounts'),
+  addBankAccount: (d: { bankCode: string; bankName: string; accountNumber: string; accountName: string; isDefault?: boolean }) =>
+    api.post('/mechanics/me/bank-accounts', d),
+  setDefaultBankAccount: (accountId: string) => api.put(`/mechanics/me/bank-accounts/${accountId}/default`),
+  deleteBankAccount: (accountId: string) => api.delete(`/mechanics/me/bank-accounts/${accountId}`),
 }
 
 export const vehiclesAPI = {
@@ -78,3 +83,10 @@ export const bookingsAPI = {
 }
 
 export const ratingsAPI = { create: (d: object) => api.post('/ratings', d) }
+
+export const walletAPI = {
+  getBanks: () => api.get<Array<{ code: string; name: string }>>('/wallet/banks'),
+  getSummary: () =>
+    api.get<{ balance: { balanceNaira: number; balanceMinor: number }; owing: { owingNaira: number }; recentTransactions: any[] }>('/wallet/summary'),
+  withdraw: (amountMinor: number) => api.post('/wallet/withdraw', { amountMinor }),
+}

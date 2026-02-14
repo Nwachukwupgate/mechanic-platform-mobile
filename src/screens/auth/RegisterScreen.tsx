@@ -6,6 +6,7 @@ import { colors } from '../../theme/colors'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Card } from '../../components/Card'
+import { MapBackground } from '../../components/MapBackground'
 
 export function RegisterScreen({ navigation }: { navigation: any }) {
   const [role, setRole] = useState<'USER' | 'MECHANIC'>('USER')
@@ -52,9 +53,10 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Sign up</Text>
+    <MapBackground variant="light" style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>Sign up</Text>
         <View style={styles.roleRow}>
           <Button title="User" onPress={() => { setRole('USER'); setError('') }} variant={role === 'USER' ? 'primary' : 'outline'} style={styles.roleBtn} />
           <Button title="Mechanic" onPress={() => { setRole('MECHANIC'); setError('') }} variant={role === 'MECHANIC' ? 'primary' : 'outline'} style={styles.roleBtn} />
@@ -84,13 +86,15 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
           />
         </Card>
         <Button title="Already have an account? Sign in" onPress={() => navigation.replace('Login')} variant="outline" style={styles.loginBtn} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </MapBackground>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
+  keyboard: { flex: 1 },
   scroll: { padding: 24, paddingTop: 48, paddingBottom: 48 },
   title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 16 },
   roleRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },

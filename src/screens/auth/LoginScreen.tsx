@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { authAPI, getApiErrorMessage } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
@@ -7,6 +7,7 @@ import { colors } from '../../theme/colors'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Card } from '../../components/Card'
+import { MapBackground } from '../../components/MapBackground'
 
 export function LoginScreen({ navigation }: { navigation: any }) {
   const [role, setRole] = useState<'USER' | 'MECHANIC'>('USER')
@@ -43,9 +44,10 @@ export function LoginScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
+    <MapBackground variant="light" style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
           <Ionicons name="construct" size={48} color={colors.primary[600]} />
           <Text style={styles.title}>Mechanic Platform</Text>
           <Text style={styles.subtitle}>Sign in to continue</Text>
@@ -89,13 +91,15 @@ export function LoginScreen({ navigation }: { navigation: any }) {
           variant="outline"
           style={styles.registerBtn}
         />
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </MapBackground>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
+  keyboard: { flex: 1 },
   scroll: { padding: 24, paddingTop: 48 },
   header: { alignItems: 'center', marginBottom: 24 },
   title: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: 12 },
