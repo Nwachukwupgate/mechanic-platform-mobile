@@ -39,6 +39,19 @@ This guide assumes you’re on **macOS** and new to building Android apps. Follo
 
 3. When asked, type **y** and press Enter for each license (or run with `yes |` as above to accept all).
 
+### Step 1.4 – What to do inside Android Studio (reference)
+
+After the first-run wizard finishes, you only need Android Studio for a few things. Here’s what to do **inside the app**:
+
+| What you need | Where to go in Android Studio | What to do |
+|---------------|------------------------------|------------|
+| **Install/check Android SDK** | **Settings** (Mac: **Android Studio** → **Settings**, or **Preferences** with ⌘,) → **Languages & Frameworks** → **Android SDK** | **SDK Platforms** tab: ensure at least one platform is installed (e.g. **Android 14.0** or **API 34**). **SDK Tools** tab: ensure **Android SDK Build-Tools**, **Android SDK Command-line Tools**, and **Android SDK Platform-Tools** are checked. Click **Apply** to install anything missing. |
+| **Skip emulator (optional)** | Same **Android SDK** → **SDK Tools** | You can **uncheck** “Google Play Intel x86_64 Atom System Image” (and other system images) if you only need to build an APK for a real device. That avoids long downloads and the ZLIB error. |
+| **See where SDK is installed** | Same **Android SDK** screen | At the top you’ll see **Android SDK Location** (e.g. `~/Library/Android/sdk`). The build uses this; you don’t need to change it unless you moved the SDK. |
+| **Open the project in Android Studio (optional)** | **File** → **Open** | Only if you want to look at the native Android code or build from the IDE. Open the **`android`** folder (inside `mechanic-platform-mobile`), not the root project. Wait for “Gradle sync” to finish. To build from the IDE: **Build** → **Build Bundle(s) / APK(s)** → **Build APK(s)**. |
+
+You **don’t** need to create a new project, run an emulator, or write any Java/Kotlin code. For the guide in this doc, building is done in **Terminal** with `./gradlew assembleRelease` (Part 2). Android Studio is mainly for installing the SDK and, if you like, opening the `android` folder.
+
 You only need to do Part 1 once. After this, you can build APKs from this project whenever you want.
 
 ---
@@ -73,7 +86,24 @@ npx expo prebuild --platform android
 - If it asks “What would you like to do?” → choose **Use existing android folder** or **Overwrite** (Overwrite is fine if you want a clean build).
 - This creates an `android` folder with the native Android project. It may take a minute.
 
-### Step 2.4 – Build the APK
+### Step 2.4 – Install Java (JDK) if needed
+
+Gradle needs a **Java Runtime (JDK)**. If you see **"Unable to locate a Java Runtime"** when running `./gradlew`:
+
+- **Option A – Use Android Studio’s JDK** (if you have it):  
+  `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`  
+  If that path doesn’t exist, try:  
+  `export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/Contents/Home"`  
+  Add that line to `~/.zshrc` to make it permanent.
+- **Option B – Install via Homebrew**:  
+  `brew install openjdk@17`  
+  Then:  
+  `export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"`  
+  (On Intel Mac: `/usr/local/opt/openjdk@17/...`). Add to `~/.zshrc` to keep it.
+
+Then run `./gradlew assembleDebug` again from the `android` folder.
+
+### Step 2.5 – Build the APK
 
 Run:
 
@@ -82,6 +112,8 @@ cd android
 ./gradlew assembleRelease
 cd ..
 ```
+
+(Or `./gradlew assembleDebug` for a debug APK to share for testing.)
 
 - The first time can take several minutes (downloads Gradle and dependencies).
 - If you see **BUILD SUCCESSFUL** at the end, the APK was created.
@@ -94,7 +126,7 @@ chmod +x android/gradlew
 
 Then run `./gradlew assembleRelease` again.
 
-### Step 2.5 – Find your APK file
+### Step 2.6 – Find your APK file
 
 The APK path is:
 
@@ -223,9 +255,41 @@ This means an SDK package (e.g. **Google Play Intel x86_64 Atom System Image**) 
 
 ---
 
+### “Unsupported engine” / Node version (npm install or prebuild)
+
+Metro and React Native need **Node.js >= 20.19.4**. If you see `required: { node: '>=20.19.4' }` and you’re on **v20.19.0** (or lower), upgrade Node:
+
+- **Using nvm** (recommended):  
+  `nvm install 20.19.4` then `nvm use 20.19.4`  
+  (or `nvm install 22` for the current LTS)
+- **Using Homebrew**:  
+  `brew upgrade node`
+- **From nodejs.org**:  
+  Download and install the latest **LTS** (e.g. 22.x) from https://nodejs.org
+
+Then run `node -v` (should show 20.19.4 or higher) and run `npm install` again.
+
+### “Unable to resolve a valid config plugin for react-native-maps” (prebuild)
+
+Don’t use `react-native-maps` as an Expo plugin; the project config is already fixed. Also use the correct platform name: **android** (not “andriod”). Run:
+
+```bash
+npx expo prebuild --platform android
+```
+
+### Prebuild: “Unexpected token '<'” or SyntaxError in react-native-maps
+
+Usually caused by Node being too old (see “Unsupported engine” above) or by the wrong plugin config (see “Unable to resolve a valid config plugin” above). Upgrade Node and use the correct prebuild command.
+
+---
+
 | Problem | What to try |
 |--------|-------------|
 | **ZLIB / “Unexpected end of ZLIB input stream”** | See section above: quit Studio, remove corrupted package and cache, reopen SDK Manager, re-download or uncheck the failing component. |
+| **Node “Unsupported engine” / need >= 20.19.4** | Upgrade Node (nvm, Homebrew, or nodejs.org). See “Unsupported engine” above. |
+| **“Config plugin for react-native-maps” / prebuild fails** | Use `npx expo prebuild --platform android` (spelling: **android**). Config is already fixed in the project. |
+| **“Unable to locate a Java Runtime”** | Install a JDK or use Android Studio’s (see Step 2.4). Set `JAVA_HOME` and run `./gradlew assembleDebug` again. |
+| **Gradle download “timeout (10000ms)”** | The project’s Gradle wrapper timeout was increased to 120s. Try `./gradlew assembleDebug` again. Use a stable Wi‑Fi; if it still fails, try another network or mobile hotspot. |
 | “ANDROID_HOME not set” | In Terminal: `echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> ~/.zshrc` then `source ~/.zshrc`. |
 | “sdkmanager not found” | Install Android Studio and complete Part 1, then run the license command again. |
 | “Build failed” (Gradle) | Run `cd android && ./gradlew clean && ./gradlew assembleRelease` then try again. |
