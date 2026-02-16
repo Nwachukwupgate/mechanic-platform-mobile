@@ -168,25 +168,25 @@ export function MechanicProfileScreen() {
   const save = async () => {
     setError('')
     setSaving(true)
+    const payload: any = {
+      phone: form.phone.trim() || undefined,
+      experience: form.experience.trim() || undefined,
+      bio: form.bio.trim() || undefined,
+      workshopAddress: form.workshopAddress.trim() || undefined,
+      workshopLat: form.workshopLat ?? undefined,
+      workshopLng: form.workshopLng ?? undefined,
+      address: form.address.trim() || undefined,
+      city: form.city.trim() || undefined,
+      state: form.state.trim() || undefined,
+      zipCode: form.zipCode.trim() || undefined,
+      nin: form.nin.trim() || undefined,
+      guarantorName: form.guarantorName.trim() || undefined,
+      guarantorPhone: form.guarantorPhone.trim() || undefined,
+      guarantorAddress: form.guarantorAddress.trim() || undefined,
+      vehicleTypes: form.vehicleTypes.length ? form.vehicleTypes : undefined,
+      expertise: form.expertise.length ? form.expertise : undefined,
+    }
     try {
-      const payload: any = {
-        phone: form.phone.trim() || undefined,
-        experience: form.experience.trim() || undefined,
-        bio: form.bio.trim() || undefined,
-        workshopAddress: form.workshopAddress.trim() || undefined,
-        workshopLat: form.workshopLat ?? undefined,
-        workshopLng: form.workshopLng ?? undefined,
-        address: form.address.trim() || undefined,
-        city: form.city.trim() || undefined,
-        state: form.state.trim() || undefined,
-        zipCode: form.zipCode.trim() || undefined,
-        nin: form.nin.trim() || undefined,
-        guarantorName: form.guarantorName.trim() || undefined,
-        guarantorPhone: form.guarantorPhone.trim() || undefined,
-        guarantorAddress: form.guarantorAddress.trim() || undefined,
-        vehicleTypes: form.vehicleTypes.length ? form.vehicleTypes : undefined,
-        expertise: form.expertise.length ? form.expertise : undefined,
-      }
       await mechanicsAPI.updateProfile(payload)
       setProfile((p: any) => (p ? { ...p, ...payload } : p))
     } catch (e: any) {
@@ -341,7 +341,7 @@ export function MechanicProfileScreen() {
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{pickerOpen === 'vehicleTypes' ? 'Vehicle types' : 'Expertise'}</Text>
             <FlatList
-              data={pickerOpen === 'vehicleTypes' ? MECHANIC_VEHICLE_TYPES : EXPERTISE_OPTIONS}
+              data={(pickerOpen === 'vehicleTypes' ? MECHANIC_VEHICLE_TYPES : EXPERTISE_OPTIONS) as unknown as Array<{ value: string; label: string }>}
               keyExtractor={(item) => item.value}
               renderItem={({ item }) => {
                 const selected = form[pickerOpen === 'vehicleTypes' ? 'vehicleTypes' : 'expertise'].includes(item.value)

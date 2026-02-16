@@ -7,6 +7,7 @@ import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
+import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
 
 const ACTIVE_STATUSES = ['REQUESTED', 'ACCEPTED', 'IN_PROGRESS']
 const COMPLETED_STATUSES = ['DONE', 'PAID', 'DELIVERED']
@@ -55,23 +56,31 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />
       }
     >
-      <Text style={styles.greeting}>Hello, {name}</Text>
+      <AnimatedFadeIn>
+        <Text style={styles.greeting}>Hello, {name}</Text>
+      </AnimatedFadeIn>
       <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <IconBadge name="document-text-outline" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
-          <Text style={styles.statValue}>{openRequests.length}</Text>
-          <Text style={styles.statLabel}>Open requests</Text>
-        </View>
-        <View style={styles.statBox}>
-          <IconBadge name="time" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
-          <Text style={styles.statValue}>{active.length}</Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={styles.statBox}>
-          <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
-          <Text style={styles.statValue}>{completed.length}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
+        <AnimatedFadeIn delay={0} duration={280}>
+          <View style={styles.statBox}>
+            <IconBadge name="document-text-outline" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
+            <Text style={styles.statValue}>{openRequests.length}</Text>
+            <Text style={styles.statLabel}>Open requests</Text>
+          </View>
+        </AnimatedFadeIn>
+        <AnimatedFadeIn delay={60} duration={280}>
+          <View style={styles.statBox}>
+            <IconBadge name="time" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
+            <Text style={styles.statValue}>{active.length}</Text>
+            <Text style={styles.statLabel}>Active</Text>
+          </View>
+        </AnimatedFadeIn>
+        <AnimatedFadeIn delay={120} duration={280}>
+          <View style={styles.statBox}>
+            <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
+            <Text style={styles.statValue}>{completed.length}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+        </AnimatedFadeIn>
       </View>
 
       {openRequests.length > 0 && (

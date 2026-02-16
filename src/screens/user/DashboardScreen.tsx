@@ -6,6 +6,7 @@ import { bookingsAPI } from '../../services/api'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
+import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
 
 const ACTIVE_STATUSES = ['REQUESTED', 'ACCEPTED', 'IN_PROGRESS']
 const COMPLETED_STATUSES = ['DONE', 'PAID', 'DELIVERED']
@@ -40,24 +41,32 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       contentContainerStyle={styles.scroll}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />}
     >
-      <Text style={styles.greeting}>Hello, {name}</Text>
+      <AnimatedFadeIn>
+        <Text style={styles.greeting}>Hello, {name}</Text>
+      </AnimatedFadeIn>
 
       <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <IconBadge name="time" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
-          <Text style={styles.statValue}>{active}</Text>
-          <Text style={styles.statLabel}>Active</Text>
-        </View>
-        <View style={styles.statBox}>
-          <IconBadge name="document-text" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
-          <Text style={styles.statValue}>{total}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={styles.statBox}>
-          <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
-          <Text style={styles.statValue}>{completed}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
+        <AnimatedFadeIn delay={0} duration={280}>
+          <View style={styles.statBox}>
+            <IconBadge name="time" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
+            <Text style={styles.statValue}>{active}</Text>
+            <Text style={styles.statLabel}>Active</Text>
+          </View>
+        </AnimatedFadeIn>
+        <AnimatedFadeIn delay={60} duration={280}>
+          <View style={styles.statBox}>
+            <IconBadge name="document-text" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
+            <Text style={styles.statValue}>{total}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+        </AnimatedFadeIn>
+        <AnimatedFadeIn delay={120} duration={280}>
+          <View style={styles.statBox}>
+            <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
+            <Text style={styles.statValue}>{completed}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+        </AnimatedFadeIn>
       </View>
 
       {recent.length > 0 && (
@@ -68,13 +77,13 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          {recent.map((b) => (
-            <TouchableOpacity
-              key={b.id}
-              onPress={() => navigation.getParent()?.navigate('BookingDetail', { id: b.id })}
-              activeOpacity={0.8}
-            >
-              <Card style={styles.recentCard}>
+          {recent.map((b, i) => (
+            <AnimatedFadeIn key={b.id} delay={180 + i * 50} duration={260}>
+              <TouchableOpacity
+                onPress={() => navigation.getParent()?.navigate('BookingDetail', { id: b.id })}
+                activeOpacity={0.8}
+              >
+                <Card style={styles.recentCard}>
                 <View style={styles.recentCardInner}>
                   <IconBadge name="car-sport" size={20} color={colors.primary[600]} backgroundColor={colors.primary[50]} style={styles.recentIcon} />
                   <View style={styles.recentContent}>
@@ -91,10 +100,12 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                 </View>
               </Card>
             </TouchableOpacity>
+            </AnimatedFadeIn>
           ))}
         </>
       )}
 
+      <AnimatedFadeIn delay={220} duration={300}>
       <Card style={styles.card}>
         <View style={styles.cardIconWrap}>
           <IconBadge name="car-sport" size={28} color={colors.primary[600]} backgroundColor={colors.primary[100]} style={styles.cardIconBadge} />
@@ -106,6 +117,8 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           <Ionicons name="arrow-forward" size={18} color={colors.primary[600]} />
         </TouchableOpacity>
       </Card>
+      </AnimatedFadeIn>
+      <AnimatedFadeIn delay={280} duration={300}>
       <Card style={styles.card}>
         <View style={styles.cardIconWrap}>
           <IconBadge name="list" size={28} color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} style={styles.cardIconBadge} />
@@ -117,6 +130,8 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           <Ionicons name="arrow-forward" size={18} color={colors.primary[600]} />
         </TouchableOpacity>
       </Card>
+      </AnimatedFadeIn>
+      <AnimatedFadeIn delay={340}>
       <View style={styles.quickLinks}>
         <TouchableOpacity style={styles.quickLink} onPress={() => navigation.getParent()?.navigate('JobHistory')} activeOpacity={0.8}>
           <View style={styles.quickLinkIconWrap}>
@@ -131,6 +146,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           <Text style={styles.quickLinkText}>Wallet</Text>
         </TouchableOpacity>
       </View>
+      </AnimatedFadeIn>
     </ScrollView>
   )
 }

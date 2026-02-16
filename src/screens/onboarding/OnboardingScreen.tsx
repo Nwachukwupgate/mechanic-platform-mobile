@@ -5,6 +5,7 @@ import { setOnboardingComplete } from '../../utils/onboarding'
 import { colors } from '../../theme/colors'
 import { Button } from '../../components/Button'
 import { MapBackground } from '../../components/MapBackground'
+import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
 
 const { width } = Dimensions.get('window')
 
@@ -43,11 +44,13 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   return (
     <MapBackground variant="light" style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={slide.icon} size={72} color={colors.primary[600]} />
-        </View>
-        <Text style={styles.title}>{slide.title}</Text>
-        <Text style={styles.subtitle}>{slide.subtitle}</Text>
+        <AnimatedFadeIn key={index} duration={400}>
+          <View style={styles.iconWrap}>
+            <Ionicons name={slide.icon} size={72} color={colors.primary[600]} />
+          </View>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.subtitle}>{slide.subtitle}</Text>
+        </AnimatedFadeIn>
       </View>
       <View style={styles.dots}>
         {SLIDES.map((_, i) => (

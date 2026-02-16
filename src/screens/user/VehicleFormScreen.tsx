@@ -179,9 +179,9 @@ export function VehicleFormScreen() {
             <Text style={styles.modalTitle}>
               {pickerOpen === 'type' ? 'Vehicle type' : 'Brand'}
             </Text>
-            <FlatList
-              data={pickerOpen === 'type' ? VEHICLE_TYPES : CAR_BRANDS.map((b) => ({ value: b, label: b }))}
-              keyExtractor={(item) => (item as { value: string }).value}
+            <FlatList<{ value: string; label: string }>
+              data={pickerOpen === 'type' ? [...VEHICLE_TYPES] : CAR_BRANDS.map((b) => ({ value: b, label: b }))}
+              keyExtractor={(item) => item.value}
               renderItem={({ item }) => {
                 const v = (item as { value: string; label: string }).value
                 const label = (item as { value: string; label: string }).label

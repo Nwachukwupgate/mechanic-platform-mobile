@@ -18,7 +18,7 @@ import {
   getApiErrorMessage,
 } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
-import { connectSocket, onQuoteEvents } from '../../services/socket'
+import { connectSocket, onQuoteEvents, onNewMessage } from '../../services/socket'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
