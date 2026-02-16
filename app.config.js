@@ -5,6 +5,15 @@ const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 module.exports = {
   expo: {
     ...base,
+    slug: 'mechanic',
+    owner: 'treyp99s-organization',
+    extra: {
+      ...base.extra,
+      eas: {
+        projectId: 'b2e1f900-e081-4397-95a7-0ac11f0c99eb',
+        owner: 'treyp99s-organization',
+      },
+    },
     android: {
       ...base.android,
       package: 'com.anonymous.mechanicplatformmobile',

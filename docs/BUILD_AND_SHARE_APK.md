@@ -290,6 +290,7 @@ Usually caused by Node being too old (see “Unsupported engine” above) or by 
 | **“Config plugin for react-native-maps” / prebuild fails** | Use `npx expo prebuild --platform android` (spelling: **android**). Config is already fixed in the project. |
 | **“Unable to locate a Java Runtime”** | Install a JDK or use Android Studio’s (see Step 2.4). Set `JAVA_HOME` and run `./gradlew assembleDebug` again. |
 | **Gradle download “timeout (10000ms)”** | The project’s Gradle wrapper timeout was increased to 120s. Try `./gradlew assembleDebug` again. Use a stable Wi‑Fi; if it still fails, try another network or mobile hotspot. |
+| **Gradle download stuck (dots for 30+ min)** | Stop with Ctrl+C, then install Gradle manually (see “Gradle download stuck” below), or use **EAS Build** so the build runs in the cloud: `npm run build:android`. |
 | “ANDROID_HOME not set” | In Terminal: `echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> ~/.zshrc` then `source ~/.zshrc`. |
 | “sdkmanager not found” | Install Android Studio and complete Part 1, then run the license command again. |
 | “Build failed” (Gradle) | Run `cd android && ./gradlew clean && ./gradlew assembleRelease` then try again. |

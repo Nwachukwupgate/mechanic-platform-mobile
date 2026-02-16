@@ -368,7 +368,3 @@ const styles = StyleSheet.create({
   bankOption: { paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: colors.neutral[100] },
   bankOptionText: { fontSize: 16, color: colors.text },
 })
-</think>
-Fixing the screen: the modal was placed after the return and the component structure was broken.
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-StrReplace
