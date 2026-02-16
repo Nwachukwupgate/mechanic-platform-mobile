@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { bookingsAPI } from '../../services/api'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
+import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 
 const COMPLETED_STATUSES = ['DONE', 'PAID', 'DELIVERED']
@@ -38,35 +39,52 @@ export function MechanicJobHistoryScreen({ navigation }: { navigation: any }) {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="checkmark-done-outline" size={48} color={colors.neutral[400]} />
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="checkmark-done-outline" size={48} color={colors.neutral[400]} />
+            </View>
             <Text style={styles.emptyText}>No completed jobs yet</Text>
             <Text style={styles.emptySub}>Completed jobs will appear here.</Text>
           </View>
         }
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => navigation.navigate('MechanicBookingDetail', { id: item.id })}
+            onPress={() => navigation.getParent()?.navigate('MechanicBookingDetail', { id: item.id })}
             activeOpacity={0.8}
           >
             <Card style={styles.card}>
-              <View style={styles.cardRow}>
-                <Text style={styles.vehicle}>{item.vehicle?.brand} {item.vehicle?.model}</Text>
-                <View style={styles.statusChip}>
-                  <Text style={styles.statusChipText}>{item.status}</Text>
+              <View style={styles.cardInner}>
+                <IconBadge name="car-sport" size={22} color={colors.accent.green} backgroundColor={colors.accent.green + '22'} style={styles.cardIcon} />
+                <View style={styles.cardBody}>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.vehicle}>{item.vehicle?.brand} {item.vehicle?.model}</Text>
+                    <View style={styles.statusChip}>
+                      <Ionicons name="checkmark-circle" size={14} color={colors.accent.green} />
+                      <Text style={styles.statusChipText}>{item.status}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.faultRow}>
+                    <Ionicons name="construct-outline" size={14} color={colors.textSecondary} />
+                    <Text style={styles.fault}>{item.fault?.name}</Text>
+                  </View>
+                  <View style={styles.customerRow}>
+                    <Ionicons name="person-outline" size={14} color={colors.primary[600]} />
+                    <Text style={styles.customer}>{item.user?.firstName} {item.user?.lastName}</Text>
+                  </View>
+                  {(item.actualCost != null || item.estimatedCost != null) && (
+                    <View style={styles.costRow}>
+                      <Ionicons name="cash-outline" size={14} color={colors.accent.green} />
+                      <Text style={styles.cost}>₦{Number(item.actualCost ?? item.estimatedCost).toLocaleString()}</Text>
+                    </View>
+                  )}
+                  {item.completedAt && (
+                    <View style={styles.dateRow}>
+                      <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} />
+                      <Text style={styles.date}>{new Date(item.completedAt).toLocaleDateString()}</Text>
+                    </View>
+                  )}
                 </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
               </View>
-              <Text style={styles.fault}>{item.fault?.name}</Text>
-              <Text style={styles.customer}>{item.user?.firstName} {item.user?.lastName}</Text>
-              {(item.actualCost != null || item.estimatedCost != null) && (
-                <Text style={styles.cost}>
-                  ₦{Number(item.actualCost ?? item.estimatedCost).toLocaleString()}
-                </Text>
-              )}
-              {item.completedAt && (
-                <Text style={styles.date}>
-                  {new Date(item.completedAt).toLocaleDateString()}
-                </Text>
-              )}
             </Card>
           </TouchableOpacity>
         )}
@@ -79,15 +97,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   list: { padding: 16, paddingBottom: 32 },
   card: { marginBottom: 12 },
+  cardInner: { flexDirection: 'row', alignItems: 'center' },
+  cardIcon: { width: 42, height: 42, borderRadius: 21 },
+  cardBody: { flex: 1, marginLeft: 14 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   vehicle: { fontSize: 16, fontWeight: '600', color: colors.text },
-  statusChip: { backgroundColor: colors.accent.green + '22', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  statusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent.green + '22', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusChipText: { fontSize: 12, fontWeight: '600', color: colors.accent.green },
-  fault: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
-  customer: { fontSize: 14, color: colors.primary[600], marginTop: 4 },
-  cost: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 4 },
-  date: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  faultRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  fault: { fontSize: 14, color: colors.textSecondary },
+  customerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  customer: { fontSize: 14, color: colors.primary[600] },
+  costRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  cost: { fontSize: 14, fontWeight: '600', color: colors.text },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  date: { fontSize: 12, color: colors.textSecondary },
   empty: { alignItems: 'center', paddingVertical: 48 },
-  emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 12 },
-  emptySub: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
+  emptyIconWrap: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.neutral[100], alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 20 },
+  emptySub: { fontSize: 14, color: colors.textSecondary, marginTop: 8, textAlign: 'center', paddingHorizontal: 24 },
 })
