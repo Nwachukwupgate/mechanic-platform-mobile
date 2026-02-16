@@ -231,8 +231,8 @@ export function MechanicProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Card>
-        <Text style={styles.sectionLabel}>Photo</Text>
+      <Card style={styles.profileCard}>
+        <Text style={[styles.sectionLabel, styles.sectionLabelFirst]}>Photo</Text>
         <View style={styles.avatarRow}>
           {profile?.avatarUrl ? (
             <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
@@ -264,17 +264,20 @@ export function MechanicProfileScreen() {
           />
         </View>
 
-        <Input label="Phone" value={form.phone} onChangeText={(t) => setForm((f) => ({ ...f, phone: t }))} />
-        <Input label="Years of experience" value={form.experience} onChangeText={(t) => setForm((f) => ({ ...f, experience: t }))} keyboardType="number-pad" />
-        <Text style={styles.inputLabel}>Bio</Text>
-        <TextInput
-          style={styles.bioInput}
+        <Text style={styles.sectionLabel}>Contact & experience</Text>
+        <View style={styles.formGroup}>
+          <Input label="Phone" value={form.phone} onChangeText={(t) => setForm((f) => ({ ...f, phone: t }))} />
+          <Input label="Years of experience" value={form.experience} onChangeText={(t) => setForm((f) => ({ ...f, experience: t }))} keyboardType="number-pad" style={styles.inputSpaced} />
+          <Text style={styles.inputLabel}>Bio</Text>
+          <TextInput
+            style={styles.bioInput}
           value={form.bio}
           onChangeText={(t) => setForm((f) => ({ ...f, bio: t }))}
           placeholder="Short description of your workshop..."
           placeholderTextColor={colors.neutral[400]}
           multiline
-        />
+          />
+        </View>
 
         <Text style={styles.sectionLabel}>Vehicle types you service</Text>
         <TouchableOpacity style={styles.selectChip} onPress={() => { setPickerOpen('vehicleTypes'); setPickerValue(form.vehicleTypes); }}>
@@ -293,28 +296,31 @@ export function MechanicProfileScreen() {
         </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>Workshop location</Text>
-        <Input
-          label="Address"
-          value={form.workshopAddress}
-          onChangeText={(t) => setForm((f) => ({ ...f, workshopAddress: t }))}
-          placeholder="Or use button below"
-        />
-        <Button title="Use my location" onPress={useMyLocation} variant="outline" />
-
-        <Input label="Address (full)" value={form.address} onChangeText={(t) => setForm((f) => ({ ...f, address: t }))} />
-        <View style={styles.row}>
-          <Input label="City" value={form.city} onChangeText={(t) => setForm((f) => ({ ...f, city: t }))} style={styles.half} />
-          <Input label="State" value={form.state} onChangeText={(t) => setForm((f) => ({ ...f, state: t }))} style={styles.half} />
+        <View style={styles.formGroup}>
+          <Input
+            label="Address"
+            value={form.workshopAddress}
+            onChangeText={(t) => setForm((f) => ({ ...f, workshopAddress: t }))}
+            placeholder="Or use button below"
+          />
+          <Button title="Use my location" onPress={useMyLocation} variant="outline" style={styles.formBtn} />
+          <Input label="Address (full)" value={form.address} onChangeText={(t) => setForm((f) => ({ ...f, address: t }))} style={styles.inputSpaced} />
+          <View style={styles.row}>
+            <Input label="City" value={form.city} onChangeText={(t) => setForm((f) => ({ ...f, city: t }))} style={styles.half} />
+            <Input label="State" value={form.state} onChangeText={(t) => setForm((f) => ({ ...f, state: t }))} style={styles.half} />
+          </View>
+          <Input label="Zip code" value={form.zipCode} onChangeText={(t) => setForm((f) => ({ ...f, zipCode: t }))} style={styles.inputSpaced} />
         </View>
-        <Input label="Zip code" value={form.zipCode} onChangeText={(t) => setForm((f) => ({ ...f, zipCode: t }))} />
 
         <Text style={styles.sectionLabel}>NIN</Text>
-        <Input value={form.nin} onChangeText={(t) => setForm((f) => ({ ...f, nin: t }))} placeholder="National ID number" />
+        <Input value={form.nin} onChangeText={(t) => setForm((f) => ({ ...f, nin: t }))} placeholder="National ID number" style={styles.inputTop} />
 
         <Text style={styles.sectionLabel}>Guarantor</Text>
-        <Input label="Name" value={form.guarantorName} onChangeText={(t) => setForm((f) => ({ ...f, guarantorName: t }))} />
-        <Input label="Phone" value={form.guarantorPhone} onChangeText={(t) => setForm((f) => ({ ...f, guarantorPhone: t }))} keyboardType="phone-pad" />
-        <Input label="Address" value={form.guarantorAddress} onChangeText={(t) => setForm((f) => ({ ...f, guarantorAddress: t }))} />
+        <View style={styles.formGroup}>
+          <Input label="Name" value={form.guarantorName} onChangeText={(t) => setForm((f) => ({ ...f, guarantorName: t }))} />
+          <Input label="Phone" value={form.guarantorPhone} onChangeText={(t) => setForm((f) => ({ ...f, guarantorPhone: t }))} keyboardType="phone-pad" style={styles.inputSpaced} />
+          <Input label="Address" value={form.guarantorAddress} onChangeText={(t) => setForm((f) => ({ ...f, guarantorAddress: t }))} style={styles.inputSpaced} />
+        </View>
 
         <Text style={styles.sectionLabel}>Certificate</Text>
         {profile?.certificateUrl ? (
@@ -331,7 +337,7 @@ export function MechanicProfileScreen() {
         />
 
         {error ? <Text style={styles.err}>{error}</Text> : null}
-        <Button title="Save changes" onPress={save} loading={saving} />
+        <Button title="Save changes" onPress={save} loading={saving} style={styles.saveBtn} />
       </Card>
       <Button title="Sign out" onPress={() => logout()} variant="outline" style={styles.logout} />
 
@@ -365,27 +371,42 @@ export function MechanicProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 48 },
-  sectionLabel: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 16, marginBottom: 8 },
-  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
-  avatar: { width: 80, height: 80, borderRadius: 40 },
-  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.neutral[100], alignItems: 'center', justifyContent: 'center' },
+  container: { padding: 20, paddingBottom: 48 },
+  profileCard: { padding: 20 },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[600],
+    letterSpacing: 0.4,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  sectionLabelFirst: { marginTop: 0 },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 18, marginBottom: 20 },
+  avatar: { width: 84, height: 84, borderRadius: 42 },
+  avatarPlaceholder: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.neutral[100], alignItems: 'center', justifyContent: 'center' },
   avatarBtn: { flex: 1 },
-  name: { fontSize: 20, fontWeight: '700', color: colors.text },
-  email: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
-  availRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  availLabel: { fontSize: 16, fontWeight: '500', color: colors.text },
+  identityBlock: { marginBottom: 4 },
+  name: { fontSize: 21, fontWeight: '700', color: colors.text },
+  email: { fontSize: 15, color: colors.textSecondary, marginTop: 6 },
+  availRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 },
+  availLabel: { fontSize: 16, fontWeight: '600', color: colors.text },
   availBtn: { minWidth: 120 },
-  inputLabel: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: 6 },
-  bioInput: { borderWidth: 1, borderColor: colors.neutral[200], borderRadius: 12, padding: 12, fontSize: 15, minHeight: 80, color: colors.text },
+  formGroup: { marginTop: 4 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8, marginTop: 12 },
+  inputSpaced: { marginTop: 4 },
+  inputTop: { marginTop: 8 },
+  bioInput: { borderWidth: 1, borderColor: colors.neutral[200], borderRadius: 12, padding: 14, fontSize: 15, minHeight: 88, color: colors.text },
   selectChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.neutral[200], borderRadius: 12, padding: 14, marginTop: 8 },
   selectChipText: { fontSize: 15, color: colors.text },
-  row: { flexDirection: 'row', gap: 12 },
+  formBtn: { marginTop: 12 },
+  row: { flexDirection: 'row', gap: 12, marginTop: 4 },
   half: { flex: 1 },
-  link: { fontSize: 15, color: colors.primary[600], marginBottom: 8 },
-  certBtn: { marginTop: 8 },
-  err: { color: colors.accent.red, fontSize: 14, marginTop: 12 },
-  logout: { marginTop: 24 },
+  link: { fontSize: 15, color: colors.primary[600], marginBottom: 10 },
+  certBtn: { marginTop: 10 },
+  err: { color: colors.accent.red, fontSize: 14, marginTop: 14 },
+  saveBtn: { marginTop: 20 },
+  logout: { marginTop: 28 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', padding: 20, paddingBottom: 32 },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.neutral[300], alignSelf: 'center', marginBottom: 12 },

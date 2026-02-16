@@ -171,12 +171,14 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Card>
-          <Text style={styles.vehicle}>{booking.vehicle?.brand} {booking.vehicle?.model}</Text>
-          <Text style={styles.fault}>{booking.fault?.name}</Text>
-          <Text style={styles.customer}>{booking.user?.firstName} {booking.user?.lastName}</Text>
-          <View style={styles.statusWrap}>
-            <Text style={styles.status}>{status?.replace('_', ' ')}</Text>
+        <Card style={styles.mainCard}>
+          <View style={styles.heroBlock}>
+            <Text style={styles.vehicle}>{booking.vehicle?.brand} {booking.vehicle?.model}</Text>
+            <Text style={styles.fault}>{booking.fault?.name}</Text>
+            <Text style={styles.customer}>{booking.user?.firstName} {booking.user?.lastName}</Text>
+            <View style={[styles.statusChip, { backgroundColor: statusBg(status) }]}>
+              <Text style={styles.statusChipText}>{status?.replace('_', ' ')}</Text>
+            </View>
           </View>
 
           {booking.description ? (
@@ -234,23 +236,23 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 placeholderTextColor={colors.neutral[400]}
                 multiline
               />
-              <Button title="Send question" onPress={askClarification} loading={submittingClarification} variant="outline" />
+              <Button title="Send question" onPress={askClarification} loading={submittingClarification} variant="outline" style={styles.formBtn} />
             </>
           )}
 
           {/* Assigned booking flow */}
           {status === 'REQUESTED' && booking.mechanicId && (
-            <Button title="Accept booking" onPress={accept} loading={accepting} style={styles.btn} />
+            <Button title="Accept booking" onPress={accept} loading={accepting} style={styles.actionBtn} />
           )}
           {status === 'ACCEPTED' && (
-            <Button title="Start work" onPress={() => updateStatus('IN_PROGRESS')} loading={updatingStatus} style={styles.btn} />
+            <Button title="Start work" onPress={() => updateStatus('IN_PROGRESS')} loading={updatingStatus} style={styles.actionBtn} />
           )}
           {status === 'IN_PROGRESS' && (
-            <Button title="Mark as done" onPress={() => updateStatus('DONE')} loading={updatingStatus} style={styles.btn} />
+            <Button title="Mark as done" onPress={() => updateStatus('DONE')} loading={updatingStatus} style={styles.actionBtn} />
           )}
           {(status === 'ACCEPTED' || status === 'IN_PROGRESS') && booking.estimatedCost == null && (
             <View style={styles.costRow}>
-              <Input placeholder="Cost estimate" value={cost} onChangeText={setCost} keyboardType="decimal-pad" style={styles.costInput} />
+              <Input placeholder="Cost estimate (₦)" value={cost} onChangeText={setCost} keyboardType="decimal-pad" style={styles.costInput} />
               <Button title="Set cost" onPress={setCostSubmit} loading={updatingCost} />
             </View>
           )}
@@ -262,26 +264,44 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
           {hasLocation && (
             <>
               <Text style={styles.sectionLabel}>Job location</Text>
-              <Text style={styles.locationAddress} numberOfLines={3}>
-                {formatJobAddress(booking)}
-              </Text>
-              <TouchableOpacity style={styles.mapLink} onPress={openMap}>
-                <Ionicons name="map" size={20} color={colors.primary[600]} />
-                <Text style={styles.mapLinkText}>Open in Maps</Text>
-              </TouchableOpacity>
+              <View style={styles.locationBlock}>
+                <Text style={styles.locationAddress} numberOfLines={4}>
+                  {formatJobAddress(booking)}
+                </Text>
+                <TouchableOpacity style={styles.mapLink} onPress={openMap}>
+                  <Ionicons name="map" size={20} color={colors.primary[600]} />
+                  <Text style={styles.mapLinkText}>Open in Maps</Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
         </Card>
 
-        <Text style={styles.sectionTitle}>Chat</Text>
-        <BookingChat
-          bookingId={id}
-          messages={messages}
-          onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
-        />
+        <View style={styles.chatSection}>
+          <Text style={styles.sectionTitle}>Chat</Text>
+          <BookingChat
+            bookingId={id}
+            messages={messages}
+            onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
+          />
+        </View>
       </ScrollView>
     </View>
   )
+}
+
+function statusBg(status: string): string {
+  switch (status) {
+    case 'DONE':
+    case 'PAID':
+    case 'DELIVERED':
+      return colors.accent.green + '22'
+    case 'IN_PROGRESS':
+    case 'ACCEPTED':
+      return colors.primary[100]
+    default:
+      return colors.neutral[200]
+  }
 }
 
 function formatJobAddress(booking: any): string {
@@ -293,43 +313,62 @@ function formatJobAddress(booking: any): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 16, paddingBottom: 32 },
-  vehicle: { fontSize: 18, fontWeight: '600', color: colors.text },
-  fault: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
-  customer: { fontSize: 14, color: colors.primary[600], marginTop: 4 },
-  statusWrap: { marginTop: 8 },
-  status: { fontSize: 12, color: colors.primary[600], fontWeight: '600' },
-  sectionLabel: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 16, marginBottom: 6 },
-  descriptionText: { fontSize: 14, color: colors.textSecondary },
-  quoteBlock: { marginTop: 8 },
-  quotePrice: { fontSize: 18, fontWeight: '700', color: colors.primary[600] },
-  quoteStatus: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  scroll: { padding: 20, paddingBottom: 40 },
+  mainCard: { padding: 20 },
+  heroBlock: { marginBottom: 4 },
+  vehicle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  fault: { fontSize: 15, color: colors.textSecondary, marginTop: 6 },
+  customer: { fontSize: 14, color: colors.primary[600], marginTop: 6 },
+  statusChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  statusChipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[600],
+    letterSpacing: 0.4,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  descriptionText: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
+  quoteBlock: { marginTop: 4 },
+  quotePrice: { fontSize: 19, fontWeight: '700', color: colors.primary[600] },
+  quoteStatus: { fontSize: 14, color: colors.textSecondary, marginTop: 8 },
+  quoteForm: { marginTop: 12 },
+  formBtn: { marginTop: 14 },
   quoteMessageInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     fontSize: 15,
-    minHeight: 60,
-    marginTop: 8,
+    minHeight: 72,
+    marginTop: 10,
     color: colors.text,
   },
   clarificationInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     fontSize: 15,
-    minHeight: 60,
-    marginBottom: 8,
+    minHeight: 72,
+    marginBottom: 10,
     color: colors.text,
   },
-  btn: { marginTop: 12 },
-  costRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 12 },
+  actionBtn: { marginTop: 20 },
+  costRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 16 },
   costInput: { flex: 1, marginBottom: 0 },
-  cost: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 8 },
-  locationAddress: { fontSize: 14, color: colors.textSecondary },
-  mapLink: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  cost: { fontSize: 17, fontWeight: '700', color: colors.text, marginTop: 12 },
+  locationBlock: { marginTop: 4 },
+  locationAddress: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
+  mapLink: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   mapLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 20, marginBottom: 8 },
+  chatSection: { marginTop: 28 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 12 },
 })

@@ -198,22 +198,24 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Card>
-          <Text style={styles.vehicle}>
-            {booking.vehicle?.brand} {booking.vehicle?.model}
-          </Text>
-          <Text style={styles.fault}>{booking.fault?.name}</Text>
-          <View style={[styles.statusChip, { backgroundColor: statusBg(booking.status) }]}>
-            <Text style={styles.statusChipText}>{booking.status?.replace('_', ' ')}</Text>
-          </View>
-          {booking.estimatedCost != null && (
-            <Text style={styles.cost}>Est. ₦{Number(booking.estimatedCost).toLocaleString()}</Text>
-          )}
-          {booking.mechanic && (
-            <Text style={styles.mech}>
-              {booking.mechanic.companyName} · {booking.mechanic.ownerFullName}
+        <Card style={styles.mainCard}>
+          <View style={styles.heroBlock}>
+            <Text style={styles.vehicle}>
+              {booking.vehicle?.brand} {booking.vehicle?.model}
             </Text>
-          )}
+            <Text style={styles.fault}>{booking.fault?.name}</Text>
+            <View style={[styles.statusChip, { backgroundColor: statusBg(booking.status) }]}>
+              <Text style={styles.statusChipText}>{booking.status?.replace('_', ' ')}</Text>
+            </View>
+            {booking.estimatedCost != null && (
+              <Text style={styles.cost}>Est. ₦{Number(booking.estimatedCost).toLocaleString()}</Text>
+            )}
+            {booking.mechanic && (
+              <Text style={styles.mech}>
+                {booking.mechanic.companyName} · {booking.mechanic.ownerFullName}
+              </Text>
+            )}
+          </View>
 
           {/* Job details / description */}
           <Text style={styles.sectionLabel}>Job details</Text>
@@ -287,6 +289,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               <Text style={styles.sectionLabel}>Q&A</Text>
               {clarifications.map((c: any) => (
                 <View key={c.id} style={styles.clarificationCard}>
+                  <View style={styles.clarificationCardInner}>
                   <Text style={styles.clarificationQ}>{c.question}</Text>
                   {c.answer ? (
                     <Text style={styles.clarificationA}>{c.answer}</Text>
@@ -312,6 +315,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                       onPress={() => setAnsweringClarificationId(c.id)}
                     />
                   )}
+                  </View>
                 </View>
               ))}
             </>
@@ -350,6 +354,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                 <Ionicons name="map" size={20} color={colors.primary[600]} />
                 <Text style={styles.mapLinkText}>Open in Maps</Text>
               </TouchableOpacity>
+              </View>
             </>
           )}
 
@@ -363,17 +368,19 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           )}
         </Card>
 
-        <Text style={styles.sectionTitle}>Chat</Text>
-        <BookingChat
+        <View style={styles.chatSection}>
+          <Text style={styles.sectionTitle}>Chat</Text>
+          <BookingChat
           bookingId={id}
           messages={messages}
           onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
         />
+        </View>
       </ScrollView>
 
       {showRating && (
         <View style={styles.ratingModal}>
-          <Card>
+          <Card style={styles.ratingCard}>
             <Text style={styles.ratingTitle}>Rate this mechanic</Text>
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((s) => (
@@ -434,88 +441,98 @@ function statusBg(status: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 16, paddingBottom: 32 },
-  vehicle: { fontSize: 18, fontWeight: '600', color: colors.text },
-  fault: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
+  scroll: { padding: 20, paddingBottom: 40 },
+  mainCard: { padding: 20 },
+  heroBlock: { marginBottom: 4 },
+  vehicle: { fontSize: 20, fontWeight: '700', color: colors.text, letterSpacing: 0.2 },
+  fault: { fontSize: 15, color: colors.textSecondary, marginTop: 6 },
   statusChip: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginTop: 12,
   },
-  statusChipText: { fontSize: 12, fontWeight: '600', color: colors.text },
-  cost: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 6 },
-  mech: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
+  statusChipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  cost: { fontSize: 17, fontWeight: '700', color: colors.primary[600], marginTop: 10 },
+  mech: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[600],
+    letterSpacing: 0.4,
+    marginTop: 24,
+    marginBottom: 10,
   },
-  descriptionText: { fontSize: 14, color: colors.textSecondary },
+  descriptionText: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
   descriptionInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     fontSize: 15,
-    minHeight: 80,
+    minHeight: 88,
     color: colors.text,
   },
-  editLink: { fontSize: 14, color: colors.primary[600], marginTop: 6 },
-  row: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  editLink: { fontSize: 14, color: colors.primary[600], marginTop: 10 },
+  row: { flexDirection: 'row', gap: 12, marginTop: 14 },
   quoteCard: {
     backgroundColor: colors.neutral[50],
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
   },
+  quoteCardInner: { gap: 2 },
   quoteMech: { fontSize: 16, fontWeight: '600', color: colors.text },
-  quotePrice: { fontSize: 18, fontWeight: '700', color: colors.primary[600], marginTop: 4 },
-  quoteMessage: { fontSize: 13, color: colors.textSecondary, marginTop: 6 },
-  quoteActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  quotePrice: { fontSize: 19, fontWeight: '700', color: colors.primary[600], marginTop: 8 },
+  quoteMessage: { fontSize: 14, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
+  quoteActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
   quoteBtn: { flex: 1 },
   clarificationCard: {
     backgroundColor: colors.neutral[50],
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
   },
-  clarificationQ: { fontSize: 14, fontWeight: '600', color: colors.text },
-  clarificationA: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
-  answerRow: { marginTop: 8 },
+  clarificationCardInner: {},
+  clarificationQ: { fontSize: 15, fontWeight: '600', color: colors.text },
+  clarificationA: { fontSize: 14, color: colors.textSecondary, marginTop: 10, lineHeight: 21 },
+  answerRow: { marginTop: 12 },
   answerInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
     borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
+    padding: 12,
+    marginBottom: 10,
     fontSize: 15,
     color: colors.text,
   },
-  paymentRow: { flexDirection: 'row', gap: 10 },
+  paymentRow: { flexDirection: 'row', gap: 12 },
   paymentBtn: { flex: 1 },
-  locationAddress: { fontSize: 14, color: colors.textSecondary },
-  mapLink: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  locationBlock: { marginTop: 4 },
+  locationAddress: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
+  mapLink: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   mapLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
-  rateBtn: { marginTop: 12 },
+  rateBtn: { marginTop: 20 },
+  chatSection: { marginTop: 28 },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: colors.text,
-    marginTop: 20,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   commentInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     fontSize: 16,
-    minHeight: 80,
-    marginBottom: 12,
+    minHeight: 88,
+    marginBottom: 14,
     color: colors.text,
   },
   ratingModal: {
@@ -528,8 +545,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
-  ratingTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 12 },
-  stars: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  ratingCard: { padding: 24, marginHorizontal: 20 },
+  ratingTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 16 },
+  stars: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   star: { padding: 4 },
-  cancelBtn: { marginTop: 8 },
+  cancelBtn: { marginTop: 12 },
 })
