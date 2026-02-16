@@ -343,8 +343,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           {hasLocation && (
             <>
               <Text style={styles.sectionLabel}>Job location</Text>
-              <Text style={styles.locationAddress} numberOfLines={2}>
-                {booking.locationAddress || `${booking.locationLat}, ${booking.locationLng}`}
+              <Text style={styles.locationAddress} numberOfLines={3}>
+                {formatJobAddress(booking)}
               </Text>
               <TouchableOpacity style={styles.mapLink} onPress={openMap}>
                 <Ionicons name="map" size={20} color={colors.primary[600]} />
@@ -409,6 +409,13 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       )}
     </View>
   )
+}
+
+function formatJobAddress(booking: any): string {
+  if (booking.locationAddress && typeof booking.locationAddress === 'string') return booking.locationAddress
+  const parts = [booking.locationStreet, booking.locationCity, booking.locationState].filter(Boolean)
+  if (parts.length > 0) return parts.join(', ')
+  return 'Job location'
 }
 
 function statusBg(status: string): string {

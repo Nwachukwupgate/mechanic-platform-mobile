@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { vehiclesAPI, faultsAPI, bookingsAPI, ratingsAPI, getApiErrorMessage } from '../../services/api'
-import { reverseGeocode } from '../../services/geocoding'
+import { reverseGeocode, type ReverseGeocodeResult } from '../../services/geocoding'
 import { useCurrentLocation } from '../../utils/location'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
@@ -49,6 +49,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
   const [requestingId, setRequestingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [addressPreview, setAddressPreview] = useState<string | null>(null)
+  const [addressDetails, setAddressDetails] = useState<ReverseGeocodeResult | null>(null)
   const [addressLoading, setAddressLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [description, setDescription] = useState('')
@@ -77,16 +78,24 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
   useEffect(() => {
     if (locationState.lat == null || locationState.lng == null) {
       setAddressPreview(null)
+      setAddressDetails(null)
       return
     }
     let cancelled = false
     setAddressLoading(true)
     reverseGeocode(locationState.lat, locationState.lng)
       .then((r) => {
-        if (!cancelled) setAddressPreview(r.fullAddress || `${locationState.lat?.toFixed(4)}, ${locationState.lng?.toFixed(4)}`)
+        if (!cancelled) {
+          setAddressDetails(r)
+          const parts = [r.street, r.city, r.state].filter(Boolean)
+          setAddressPreview(parts.length > 0 ? parts.join(', ') : r.fullAddress)
+        }
       })
       .catch(() => {
-        if (!cancelled) setAddressPreview(`${locationState.lat?.toFixed(4)}, ${locationState.lng?.toFixed(4)}`)
+        if (!cancelled) {
+          setAddressDetails(null)
+          setAddressPreview('Address could not be determined')
+        }
       })
       .finally(() => {
         if (!cancelled) setAddressLoading(false)
@@ -144,12 +153,39 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
         mechanicId,
         locationLat: locationState.lat,
         locationLng: locationState.lng,
+        description: description.trim() || undefined,
       })
-      navigation.navigate('BookingDetail', { id: res.data.id })
+      navigation.getParent()?.navigate('BookingDetail', { id: res.data.id })
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {
       setRequestingId(null)
+    }
+  }
+
+  const postJobForQuotes = async () => {
+    if (!selectedVehicle || !selectedFault) {
+      Alert.alert('Required', 'Select vehicle and issue')
+      return
+    }
+    if (locationState.lat == null || locationState.lng == null) {
+      Alert.alert('Location required', 'Tap "Use my location" and allow access, then try again.')
+      return
+    }
+    setPostingJob(true)
+    try {
+      const res = await bookingsAPI.create({
+        vehicleId: selectedVehicle,
+        faultId: selectedFault,
+        locationLat: locationState.lat,
+        locationLng: locationState.lng,
+        description: description.trim() || undefined,
+      })
+      navigation.getParent()?.navigate('BookingDetail', { id: res.data.id })
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e))
+    } finally {
+      setPostingJob(false)
     }
   }
 

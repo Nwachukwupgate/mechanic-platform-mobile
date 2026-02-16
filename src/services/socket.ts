@@ -4,12 +4,13 @@ import { useAuthStore } from '../store/authStore'
 let socket: Socket | null = null
 
 function getSocketBaseUrl(): string {
-  const url = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000'
+  const url =
+    process.env.EXPO_PUBLIC_API_URL || 'https://mechanic.internalops.pro'
   try {
     const u = new URL(url)
     return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`
   } catch {
-    return 'http://localhost:4000'
+    return 'wss://mechanic.internalops.pro'
   }
 }
 

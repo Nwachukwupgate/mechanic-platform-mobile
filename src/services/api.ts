@@ -1,7 +1,9 @@
 import axios, { AxiosError } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000'
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  'https://mechanic.internalops.pro'
 
 export function getApiErrorMessage(
   error: unknown,
