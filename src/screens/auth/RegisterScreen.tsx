@@ -14,6 +14,7 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
   const [mechanicForm, setMechanicForm] = useState({ companyName: '', ownerFullName: '', email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const setAuth = useAuthStore((s) => s.setAuth)
 
   const handleRegisterUser = async () => {
@@ -22,11 +23,20 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
       setError('Please fill all fields')
       return
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
     setError('')
     setLoading(true)
     try {
       await authAPI.registerUser({ firstName, lastName, email, dateOfBirth, password })
-      navigation.replace('Login')
+      setSuccessMessage('Registration successful! Please check your email to verify your account before signing in.')
+      setTimeout(() => navigation.replace('Login'), 3200)
     } catch (err: any) {
       setError(getApiErrorMessage(err, 'Registration failed'))
     } finally {
@@ -40,11 +50,20 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
       setError('Please fill all fields')
       return
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
     setError('')
     setLoading(true)
     try {
       await authAPI.registerMechanic({ companyName, ownerFullName, email, password })
-      navigation.replace('Login')
+      setSuccessMessage('Registration successful! Please check your email to verify your account before signing in.')
+      setTimeout(() => navigation.replace('Login'), 3200)
     } catch (err: any) {
       setError(getApiErrorMessage(err, 'Registration failed'))
     } finally {
@@ -78,7 +97,11 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
               <Input label="Password" value={mechanicForm.password} onChangeText={(t) => setMechanicForm((f) => ({ ...f, password: t }))} secureTextEntry placeholder="Min 6 characters" />
             </>
           )}
-          {error ? <Text style={styles.errText}>{error}</Text> : null}
+          {successMessage ? (
+            <Text style={styles.successText}>{successMessage}</Text>
+          ) : error ? (
+            <Text style={styles.errText}>{error}</Text>
+          ) : null}
           <Button
             title="Create account"
             onPress={role === 'USER' ? handleRegisterUser : handleRegisterMechanic}
@@ -100,5 +123,6 @@ const styles = StyleSheet.create({
   roleRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   roleBtn: { flex: 1 },
   errText: { color: colors.accent.red, fontSize: 14, marginBottom: 12 },
+  successText: { color: colors.accent.green, fontSize: 14, marginBottom: 12 },
   loginBtn: { marginTop: 16 },
 })

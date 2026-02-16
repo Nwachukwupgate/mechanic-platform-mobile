@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { authAPI, getApiErrorMessage } from '../../services/api'
+import { validateLogin } from '../../utils/validation'
 import { useAuthStore } from '../../store/authStore'
 import { colors } from '../../theme/colors'
 import { Button } from '../../components/Button'
@@ -18,8 +19,9 @@ export function LoginScreen({ navigation }: { navigation: any }) {
   const setAuth = useAuthStore((s) => s.setAuth)
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      setError('Please enter email and password')
+    const validation = validateLogin(email, password)
+    if (!validation.valid) {
+      setError(validation.message)
       return
     }
     setError('')

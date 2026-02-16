@@ -42,6 +42,10 @@ export function MechanicWalletScreen() {
   const [showBankPicker, setShowBankPicker] = useState(false)
   const [addForm, setAddForm] = useState({ bankCode: '', bankName: '', accountNumber: '', accountName: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
+  const [editForm, setEditForm] = useState({ bankCode: '', bankName: '', accountNumber: '', accountName: '' })
+  const [showEditBankPicker, setShowEditBankPicker] = useState(false)
+  const [updatingBank, setUpdatingBank] = useState(false)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
 
@@ -92,6 +96,38 @@ export function MechanicWalletScreen() {
       loadData()
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
+    }
+  }
+
+  const openEditBank = (acc: BankAccount) => {
+    setEditingAccount(acc)
+    setEditForm({
+      bankCode: acc.bankCode,
+      bankName: acc.bankName,
+      accountNumber: acc.accountNumber,
+      accountName: acc.accountName,
+    })
+  }
+
+  const handleUpdateBank = async () => {
+    if (!editingAccount || !editForm.bankCode || editForm.accountNumber.length < 10 || !editForm.accountName.trim()) {
+      Alert.alert('Error', 'Please select a bank, enter at least 10-digit account number, and account name.')
+      return
+    }
+    setUpdatingBank(true)
+    try {
+      await mechanicsAPI.updateBankAccount(editingAccount.id, {
+        bankCode: editForm.bankCode,
+        bankName: editForm.bankName,
+        accountNumber: editForm.accountNumber,
+        accountName: editForm.accountName.trim(),
+      })
+      setEditingAccount(null)
+      loadData()
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e, 'Failed to update account'))
+    } finally {
+      setUpdatingBank(false)
     }
   }
 
@@ -264,6 +300,9 @@ export function MechanicWalletScreen() {
               </Text>
             </View>
             <View style={styles.bankActions}>
+              <TouchableOpacity onPress={() => openEditBank(acc)} style={styles.iconBtn}>
+                <Ionicons name="pencil-outline" size={22} color={colors.primary[600]} />
+              </TouchableOpacity>
               {!acc.isDefault && (
                 <TouchableOpacity onPress={() => setDefault(acc.id)} style={styles.iconBtn}>
                   <Ionicons name="star-outline" size={22} color={colors.primary[600]} />
@@ -307,6 +346,66 @@ export function MechanicWalletScreen() {
               )}
             />
             <Button title="Cancel" variant="outline" onPress={() => setShowBankPicker(false)} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={editingAccount !== null} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setEditingAccount(null)}
+        >
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>Edit bank account</Text>
+            <TouchableOpacity
+              style={styles.pickerTouch}
+              onPress={() => setShowEditBankPicker(true)}
+            >
+              <Text style={editForm.bankName ? styles.pickerText : styles.pickerPlaceholder}>
+                {editForm.bankName || 'Select bank'}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={colors.neutral[500]} />
+            </TouchableOpacity>
+            <Input
+              label="Account number"
+              value={editForm.accountNumber}
+              onChangeText={(t) => setEditForm((f) => ({ ...f, accountNumber: t.replace(/\D/g, '').slice(0, 15) }))}
+              placeholder="10 digits"
+              keyboardType="number-pad"
+            />
+            <Input
+              label="Account name"
+              value={editForm.accountName}
+              onChangeText={(t) => setEditForm((f) => ({ ...f, accountName: t }))}
+              placeholder="Name on account"
+            />
+            <Button title="Save" onPress={handleUpdateBank} loading={updatingBank} />
+            <Button title="Cancel" variant="outline" onPress={() => setEditingAccount(null)} style={{ marginTop: 8 }} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showEditBankPicker} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowEditBankPicker(false)}>
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>Select bank</Text>
+            <FlatList
+              data={banks}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.bankOption}
+                  onPress={() => {
+                    setEditForm((f) => ({ ...f, bankCode: item.code, bankName: item.name }))
+                    setShowEditBankPicker(false)
+                  }}
+                >
+                  <Text style={styles.bankOptionText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <Button title="Cancel" variant="outline" onPress={() => setShowEditBankPicker(false)} />
           </View>
         </TouchableOpacity>
       </Modal>

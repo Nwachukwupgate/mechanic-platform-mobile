@@ -14,8 +14,16 @@ const STATUS_COLORS: Record<string, string> = {
   PAID: colors.neutral[600],
 }
 
+const FILTERS = [
+  { key: 'ALL', label: 'All' },
+  { key: 'REQUESTED', label: 'Pending' },
+  { key: 'ACCEPTED', label: 'Accepted' },
+  { key: 'IN_PROGRESS', label: 'In progress' },
+]
+
 export function MechanicBookingsScreen({ navigation }: { navigation: any }) {
   const [list, setList] = useState<any[]>([])
+  const [filter, setFilter] = useState('ALL')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -33,12 +41,27 @@ export function MechanicBookingsScreen({ navigation }: { navigation: any }) {
     return unsub
   }, [navigation, load])
 
+  const filtered = filter === 'ALL'
+    ? list
+    : list.filter((b: any) => b.status === filter)
+
   if (loading) return <LoadingOverlay />
 
   return (
     <View style={styles.container}>
+      <View style={styles.filterRow}>
+        {FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            onPress={() => setFilter(f.key)}
+            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+          >
+            <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <FlatList
-        data={list}
+        data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />}
@@ -69,13 +92,19 @@ export function MechanicBookingsScreen({ navigation }: { navigation: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  list: { padding: 16, paddingBottom: 32 },
+  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.neutral[100] },
+  filterChipActive: { backgroundColor: colors.primary[600] },
+  filterChipText: { fontSize: 14, color: colors.text },
+  filterChipTextActive: { color: '#fff', fontWeight: '600' },
+  list: { padding: 16, paddingTop: 0, paddingBottom: 32 },
   card: { marginBottom: 12 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   vehicle: { fontSize: 16, fontWeight: '600', color: colors.text },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   badgeText: { fontSize: 12, color: '#fff', fontWeight: '500' },
   fault: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
+  cost: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 4 },
   customer: { fontSize: 12, color: colors.primary[600], marginTop: 4 },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 12 },

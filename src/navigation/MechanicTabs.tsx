@@ -1,6 +1,7 @@
 import React from 'react'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { Ionicons } from '@expo/vector-icons'
+import { MechanicDashboardScreen } from '../screens/mechanic/MechanicDashboardScreen'
 import { MechanicBookingsScreen } from '../screens/mechanic/MechanicBookingsScreen'
 import { MechanicWalletScreen } from '../screens/mechanic/MechanicWalletScreen'
 import { MechanicProfileScreen } from '../screens/mechanic/MechanicProfileScreen'
@@ -18,6 +19,14 @@ export function MechanicTabs() {
         tabBarInactiveTintColor: colors.neutral[500],
       }}
     >
+      <Tab.Screen
+        name="Dashboard"
+        component={MechanicDashboardScreen}
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+        }}
+      />
       <Tab.Screen
         name="Bookings"
         component={MechanicBookingsScreen}

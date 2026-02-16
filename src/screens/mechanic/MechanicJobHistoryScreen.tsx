@@ -1,20 +1,14 @@
 import React, { useState, useCallback } from 'react'
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { bookingsAPI, getApiErrorMessage } from '../../services/api'
+import { bookingsAPI } from '../../services/api'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 
-const STATUS_COLORS: Record<string, string> = {
-  REQUESTED: colors.accent.amber,
-  ACCEPTED: colors.primary[600],
-  IN_PROGRESS: colors.accent.violet,
-  DONE: colors.accent.green,
-  PAID: colors.neutral[600],
-}
+const COMPLETED_STATUSES = ['DONE', 'PAID', 'DELIVERED']
 
-export function BookingsScreen({ navigation }: { navigation: any }) {
+export function MechanicJobHistoryScreen({ navigation }: { navigation: any }) {
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -22,16 +16,14 @@ export function BookingsScreen({ navigation }: { navigation: any }) {
   const load = useCallback(async () => {
     try {
       const res = await bookingsAPI.getAll()
-      setList(res.data || [])
+      const all = res.data || []
+      const completed = all.filter((b: any) => COMPLETED_STATUSES.includes(b.status))
+      setList(completed)
     } catch (_) {}
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
   React.useEffect(() => { load() }, [load])
-  React.useEffect(() => {
-    const unsub = navigation.addListener('focus', load)
-    return unsub
-  }, [navigation, load])
 
   if (loading) return <LoadingOverlay />
 
@@ -41,25 +33,40 @@ export function BookingsScreen({ navigation }: { navigation: any }) {
         data={list}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="document-text-outline" size={48} color={colors.neutral[400]} />
-            <Text style={styles.emptyText}>No bookings yet</Text>
-            <Text style={styles.emptySub}>Find mechanics and request a service to see them here.</Text>
+            <Ionicons name="checkmark-done-outline" size={48} color={colors.neutral[400]} />
+            <Text style={styles.emptyText}>No completed jobs yet</Text>
+            <Text style={styles.emptySub}>Completed jobs will appear here.</Text>
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('BookingDetail', { id: item.id })} activeOpacity={0.8}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MechanicBookingDetail', { id: item.id })}
+            activeOpacity={0.8}
+          >
             <Card style={styles.card}>
               <View style={styles.cardRow}>
                 <Text style={styles.vehicle}>{item.vehicle?.brand} {item.vehicle?.model}</Text>
-                <View style={[styles.badge, { backgroundColor: STATUS_COLORS[item.status] || colors.neutral[300] }]}>
-                  <Text style={styles.badgeText}>{item.status?.replace('_', ' ')}</Text>
+                <View style={styles.statusChip}>
+                  <Text style={styles.statusChipText}>{item.status}</Text>
                 </View>
               </View>
               <Text style={styles.fault}>{item.fault?.name}</Text>
-              {item.mechanic ? <Text style={styles.mech}>{item.mechanic.companyName}</Text> : null}
+              <Text style={styles.customer}>{item.user?.firstName} {item.user?.lastName}</Text>
+              {(item.actualCost != null || item.estimatedCost != null) && (
+                <Text style={styles.cost}>
+                  ₦{Number(item.actualCost ?? item.estimatedCost).toLocaleString()}
+                </Text>
+              )}
+              {item.completedAt && (
+                <Text style={styles.date}>
+                  {new Date(item.completedAt).toLocaleDateString()}
+                </Text>
+              )}
             </Card>
           </TouchableOpacity>
         )}
@@ -74,10 +81,12 @@ const styles = StyleSheet.create({
   card: { marginBottom: 12 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   vehicle: { fontSize: 16, fontWeight: '600', color: colors.text },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  badgeText: { fontSize: 12, color: '#fff', fontWeight: '500' },
+  statusChip: { backgroundColor: colors.accent.green + '22', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  statusChipText: { fontSize: 12, fontWeight: '600', color: colors.accent.green },
   fault: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
-  mech: { fontSize: 12, color: colors.primary[600], marginTop: 4 },
+  customer: { fontSize: 14, color: colors.primary[600], marginTop: 4 },
+  cost: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 4 },
+  date: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 12 },
   emptySub: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },

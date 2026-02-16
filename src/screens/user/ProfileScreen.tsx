@@ -9,7 +9,7 @@ import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 
-export function ProfileScreen() {
+export function ProfileScreen({ navigation }: { navigation: any }) {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const [profile, setProfile] = useState<any>(null)
@@ -64,5 +64,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 20, fontWeight: '700', color: colors.text },
   email: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
   err: { color: colors.accent.red, fontSize: 14, marginBottom: 12 },
+  links: { flexDirection: 'row', gap: 24, marginTop: 16 },
+  link: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
   logout: { marginTop: 24 },
 })

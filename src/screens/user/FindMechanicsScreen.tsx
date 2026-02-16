@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Image,
+  TextInput,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { vehiclesAPI, faultsAPI, bookingsAPI, getApiErrorMessage } from '../../services/api'
+import { vehiclesAPI, faultsAPI, bookingsAPI, ratingsAPI, getApiErrorMessage } from '../../services/api'
 import { reverseGeocode } from '../../services/geocoding'
 import { useCurrentLocation } from '../../utils/location'
 import { colors } from '../../theme/colors'
@@ -19,7 +21,18 @@ import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { MechanicsMap, type MechanicMarker } from '../../components/MechanicsMap'
 
 type MechanicResult = {
-  mechanic?: { id: string; companyName?: string; ownerFullName?: string; workshopLat?: number; workshopLng?: number }
+  mechanic?: {
+    id: string
+    companyName?: string
+    ownerFullName?: string
+    workshopLat?: number
+    workshopLng?: number
+    workshopAddress?: string
+    avatarUrl?: string
+    bio?: string
+    expertise?: string[]
+    verified?: boolean
+  }
   workshopAddress?: string
   workshopLat?: number
   workshopLng?: number
@@ -38,6 +51,9 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
   const [addressPreview, setAddressPreview] = useState<string | null>(null)
   const [addressLoading, setAddressLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [description, setDescription] = useState('')
+  const [postingJob, setPostingJob] = useState(false)
+  const [ratings, setRatings] = useState<Record<string, number>>({})
 
   const {
     locationState,
@@ -77,6 +93,18 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
       })
     return () => { cancelled = true }
   }, [locationState.lat, locationState.lng])
+
+  const mechanicIds = mechanics.map((m) => m.mechanic?.id).filter(Boolean).join(',')
+  useEffect(() => {
+    if (!mechanicIds) return
+    const ids = mechanicIds.split(',').filter(Boolean)
+    ids.forEach((id) => {
+      ratingsAPI.getMechanicAverage(id).then((r) => {
+        const avg = r.data?.average
+        if (typeof avg === 'number') setRatings((prev) => ({ ...prev, [id]: avg }))
+      }).catch(() => {})
+    })
+  }, [mechanicIds])
 
   const search = async () => {
     if (!selectedVehicle || !selectedFault) {
@@ -205,12 +233,30 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             ))}
           </ScrollView>
+          <Text style={[styles.label, { marginTop: 16 }]}>Additional details (optional)</Text>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="e.g. when it started, sounds, warning lights..."
+            placeholderTextColor={colors.neutral[400]}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={3}
+          />
           <Button
             title="Search mechanics"
             onPress={search}
             loading={searching}
             disabled={locationState.lat == null || locationState.lng == null}
             style={styles.searchBtn}
+          />
+          <Button
+            title="Post job & get quotes"
+            onPress={postJobForQuotes}
+            loading={postingJob}
+            variant="outline"
+            disabled={locationState.lat == null || locationState.lng == null}
+            style={styles.postJobBtn}
           />
         </Card>
 
@@ -264,19 +310,62 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               />
             )}
 
-            {viewMode === 'list' && mechanics.map((m: MechanicResult) => (
-              <Card key={m.mechanic?.id} style={styles.mechanicCard}>
-                <Text style={styles.mechanicName}>{m.mechanic?.companyName || 'Garage'}</Text>
-                <Text style={styles.mechanicOwner}>{m.mechanic?.ownerFullName}</Text>
-                {m.workshopAddress ? <Text style={styles.addr} numberOfLines={1}>{m.workshopAddress}</Text> : null}
-                <Button
-                  title={requestingId === m.mechanic?.id ? 'Requesting…' : 'Request service'}
-                  onPress={() => requestService(m.mechanic!.id)}
-                  loading={requestingId === m.mechanic?.id}
-                  style={styles.reqBtn}
-                />
-              </Card>
-            ))}
+            {viewMode === 'list' && mechanics.map((m: MechanicResult) => {
+              const mid = m.mechanic?.id
+              const rating = mid ? ratings[mid] : undefined
+              return (
+                <Card key={mid} style={styles.mechanicCard}>
+                  <View style={styles.mechanicCardHeader}>
+                    {m.mechanic?.avatarUrl ? (
+                      <Image source={{ uri: m.mechanic.avatarUrl }} style={styles.avatar} />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Ionicons name="person" size={28} color={colors.neutral[500]} />
+                      </View>
+                    )}
+                    <View style={styles.mechanicCardTitle}>
+                      <View style={styles.mechanicNameRow}>
+                        <Text style={styles.mechanicName}>{m.mechanic?.companyName || 'Garage'}</Text>
+                        {m.mechanic?.verified ? (
+                          <View style={styles.verifiedBadge}>
+                            <Ionicons name="checkmark-circle" size={18} color={colors.accent.green} />
+                            <Text style={styles.verifiedText}>Verified</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.mechanicOwner}>{m.mechanic?.ownerFullName}</Text>
+                      {typeof rating === 'number' ? (
+                        <View style={styles.ratingRow}>
+                          <Ionicons name="star" size={16} color={colors.accent.amber} />
+                          <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                  {m.mechanic?.bio ? (
+                    <Text style={styles.bio} numberOfLines={2}>{m.mechanic.bio}</Text>
+                  ) : null}
+                  {(m.mechanic?.expertise?.length ?? 0) > 0 ? (
+                    <View style={styles.expertiseRow}>
+                      {(m.mechanic!.expertise!).slice(0, 4).map((ex: string) => (
+                        <View key={ex} style={styles.expertiseChip}>
+                          <Text style={styles.expertiseChipText}>{ex}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  {m.workshopAddress || m.mechanic?.workshopAddress ? (
+                    <Text style={styles.addr} numberOfLines={1}>{m.workshopAddress || m.mechanic?.workshopAddress}</Text>
+                  ) : null}
+                  <Button
+                    title={requestingId === mid ? 'Requesting…' : 'Request service'}
+                    onPress={() => mid && requestService(mid)}
+                    loading={requestingId === mid}
+                    style={styles.reqBtn}
+                  />
+                </Card>
+              )
+            })}
           </>
         )}
 
@@ -312,7 +401,20 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary[600] },
   chipText: { fontSize: 14, color: colors.text },
   chipTextActive: { color: '#fff' },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    minHeight: 80,
+    marginTop: 8,
+    textAlignVertical: 'top',
+  },
   searchBtn: { marginTop: 16 },
+  postJobBtn: { marginTop: 10 },
   loadingSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 24 },
   loadingSectionText: { fontSize: 14, color: colors.textSecondary },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 12, flexWrap: 'wrap', gap: 8 },
@@ -324,9 +426,22 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: '#fff' },
   mapBlock: { marginBottom: 16 },
   mechanicCard: { marginBottom: 12 },
+  mechanicCardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  avatar: { width: 56, height: 56, borderRadius: 28 },
+  avatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.neutral[100], alignItems: 'center', justifyContent: 'center' },
+  mechanicCardTitle: { flex: 1, marginLeft: 14 },
+  mechanicNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   mechanicName: { fontSize: 18, fontWeight: '600', color: colors.text },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  verifiedText: { fontSize: 12, color: colors.accent.green, fontWeight: '600' },
   mechanicOwner: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
-  addr: { fontSize: 12, color: colors.neutral[500], marginTop: 4 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  ratingText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  bio: { fontSize: 13, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
+  expertiseRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  expertiseChip: { backgroundColor: colors.primary[50], paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  expertiseChipText: { fontSize: 12, color: colors.primary[700], fontWeight: '500' },
+  addr: { fontSize: 12, color: colors.neutral[500], marginTop: 8 },
   reqBtn: { marginTop: 12 },
   emptySection: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 12 },
