@@ -257,7 +257,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <Text style={[styles.label, { marginTop: 12 }]}>Issue</Text>
+          <Text style={styles.sectionLabel}>Issue</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
             {faults.map((f) => (
               <TouchableOpacity
@@ -353,7 +353,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               const rating = mid ? ratings[mid] : undefined
               return (
                 <Card key={mid} style={styles.mechanicCard}>
-                  <View style={styles.mechanicCardHeader}>
+                  <View style={styles.mechanicTop}>
                     {m.mechanic?.avatarUrl ? (
                       <Image source={{ uri: m.mechanic.avatarUrl }} style={styles.avatar} />
                     ) : (

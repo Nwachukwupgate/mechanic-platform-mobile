@@ -347,13 +347,14 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           {hasLocation && (
             <>
               <Text style={styles.sectionLabel}>Job location</Text>
-              <Text style={styles.locationAddress} numberOfLines={3}>
-                {formatJobAddress(booking)}
-              </Text>
-              <TouchableOpacity style={styles.mapLink} onPress={openMap}>
-                <Ionicons name="map" size={20} color={colors.primary[600]} />
-                <Text style={styles.mapLinkText}>Open in Maps</Text>
-              </TouchableOpacity>
+              <View style={styles.locationBlock}>
+                <Text style={styles.locationAddress} numberOfLines={4}>
+                  {formatJobAddress(booking)}
+                </Text>
+                <TouchableOpacity style={styles.mapLink} onPress={openMap}>
+                  <Ionicons name="map" size={20} color={colors.primary[600]} />
+                  <Text style={styles.mapLinkText}>Open in Maps</Text>
+                </TouchableOpacity>
               </View>
             </>
           )}
