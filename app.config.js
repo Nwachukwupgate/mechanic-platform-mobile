@@ -5,6 +5,7 @@ const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 module.exports = {
   expo: {
     ...base,
+    plugins: [...(base.plugins || []), '@react-native-community/datetimepicker'],
     slug: 'mechanic',
     owner: 'treyp99s-organization',
     extra: {

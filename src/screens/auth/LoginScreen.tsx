@@ -82,6 +82,7 @@ export function LoginScreen({ navigation }: { navigation: any }) {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            showPasswordToggle
             placeholder="••••••••"
           />
           {error ? <Text style={styles.errText}>{error}</Text> : null}

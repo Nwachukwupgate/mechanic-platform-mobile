@@ -9,13 +9,15 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mechanic.internalops.pro"
+        "EXPO_PUBLIC_API_URL": "https://mechanic.internalops.pro",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBOOgtBlQDixpiOlXf41WoeLNRlVOOoRMk"
       }
     },
     "production": {
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mechanic.internalops.pro"
+        "EXPO_PUBLIC_API_URL": "https://mechanic.internalops.pro",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBOOgtBlQDixpiOlXf41WoeLNRlVOOoRMk"
       }
     }
   },
