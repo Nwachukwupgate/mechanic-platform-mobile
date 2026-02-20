@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { authAPI, getApiErrorMessage } from '../../services/api'
@@ -93,7 +93,11 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
     <MapBackground variant="light" style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Sign up</Text>
+          <View style={styles.header}>
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.brandName}>Denicksen Auto</Text>
+            <Text style={styles.title}>Sign up</Text>
+          </View>
         <View style={styles.roleRow}>
           <Button title="User" onPress={() => { setRole('USER'); setError('') }} variant={role === 'USER' ? 'primary' : 'outline'} style={styles.roleBtn} />
           <Button title="Mechanic" onPress={() => { setRole('MECHANIC'); setError('') }} variant={role === 'MECHANIC' ? 'primary' : 'outline'} style={styles.roleBtn} />
@@ -165,8 +169,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   keyboard: { flex: 1 },
   scroll: { padding: 24, paddingTop: 48, paddingBottom: 48 },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 16 },
-  roleRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  header: { alignItems: 'center', marginBottom: 16 },
+  logo: { width: 64, height: 64, marginBottom: 8 },
+  brandName: { fontSize: 18, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text },
+  roleRow: { flexDirection: 'row', gap: 12, marginBottom: 16, marginTop: 8 },
   roleBtn: { flex: 1 },
   dateWrap: { marginBottom: 16 },
   dateLabel: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: 6 },

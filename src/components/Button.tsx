@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   btn: {
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

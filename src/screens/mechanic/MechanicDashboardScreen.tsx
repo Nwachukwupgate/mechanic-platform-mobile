@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
+import React, { useState, useCallback, useEffect } from 'react'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '../../store/authStore'
 import { bookingsAPI } from '../../services/api'
@@ -8,17 +8,27 @@ import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
+import { getGreetingLine } from '../../utils/greeting'
 
 const ACTIVE_STATUSES = ['REQUESTED', 'ACCEPTED', 'IN_PROGRESS']
 const COMPLETED_STATUSES = ['DONE', 'PAID', 'DELIVERED']
 
 export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
   const user = useAuthStore((s) => s.user)
-  const name = user?.companyName || user?.ownerFullName || user?.email?.split('@')[0] || 'Mechanic'
+  const justLoggedIn = useAuthStore((s) => s.justLoggedIn)
+  const clearJustLoggedIn = useAuthStore((s) => s.clearJustLoggedIn)
+  const name = user?.companyName || user?.ownerFullName || user?.email?.split('@')[0] || 'there'
   const [openRequests, setOpenRequests] = useState<any[]>([])
   const [myBookings, setMyBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    if (justLoggedIn && name) {
+      clearJustLoggedIn()
+      Alert.alert('Welcome back!', `Great to see you, ${name}. Here’s your job overview.`, [{ text: 'Thanks' }])
+    }
+  }, [justLoggedIn, name, clearJustLoggedIn])
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +67,8 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
       }
     >
       <AnimatedFadeIn>
-        <Text style={styles.greeting}>Hello, {name}</Text>
+        <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
+        <Text style={styles.greetingSub}>Here’s your job overview.</Text>
       </AnimatedFadeIn>
       <View style={styles.statsRow}>
         <AnimatedFadeIn delay={0} duration={280}>
@@ -202,7 +213,8 @@ function statusColor(status: string): string {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: 16, paddingBottom: 32 },
-  greeting: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 20 },
+  greeting: { fontSize: 24, fontWeight: '700', color: colors.text },
+  greetingSub: { fontSize: 15, color: colors.textSecondary, marginTop: 4, marginBottom: 20 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
   statBox: {
     flex: 1,

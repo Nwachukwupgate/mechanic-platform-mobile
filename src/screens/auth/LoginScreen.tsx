@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native'
 import { authAPI, getApiErrorMessage } from '../../services/api'
 import { validateLogin } from '../../utils/validation'
 import { useAuthStore } from '../../store/authStore'
@@ -50,8 +49,8 @@ export function LoginScreen({ navigation }: { navigation: any }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-          <Ionicons name="construct" size={48} color={colors.primary[600]} />
-          <Text style={styles.title}>Mechanic Platform</Text>
+          <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Denicksen Auto</Text>
           <Text style={styles.subtitle}>Sign in to continue</Text>
         </View>
         <Card>
@@ -105,7 +104,8 @@ const styles = StyleSheet.create({
   keyboard: { flex: 1 },
   scroll: { padding: 24, paddingTop: 48 },
   header: { alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginTop: 12 },
+  logo: { width: 80, height: 80, marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 16, color: colors.textSecondary, marginTop: 4 },
   roleRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
   roleBtn: { flex: 1 },

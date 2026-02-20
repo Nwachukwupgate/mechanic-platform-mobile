@@ -23,6 +23,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useCurrentLocation } from '../../utils/location'
 import { reverseGeocode } from '../../services/geocoding'
 import { MECHANIC_VEHICLE_TYPES, EXPERTISE_OPTIONS } from '../../constants/mechanic'
+import { CAR_BRANDS } from '../../constants/vehicles'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
@@ -39,7 +40,7 @@ export function MechanicProfileScreen() {
   const [error, setError] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingCert, setUploadingCert] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState<'vehicleTypes' | 'expertise' | null>(null)
+  const [pickerOpen, setPickerOpen] = useState<'vehicleTypes' | 'expertise' | 'brands' | null>(null)
   const [pickerValue, setPickerValue] = useState<string[]>([])
   const { getLocation, locationState } = useCurrentLocation()
   const [locationRequested, setLocationRequested] = useState(false)
@@ -61,6 +62,7 @@ export function MechanicProfileScreen() {
     guarantorAddress: '',
     vehicleTypes: [] as string[],
     expertise: [] as string[],
+    brands: [] as string[],
   })
 
   useEffect(() => {
@@ -185,6 +187,7 @@ export function MechanicProfileScreen() {
       guarantorAddress: form.guarantorAddress.trim() || undefined,
       vehicleTypes: form.vehicleTypes.length ? form.vehicleTypes : undefined,
       expertise: form.expertise.length ? form.expertise : undefined,
+      brands: form.brands.length ? form.brands : undefined,
     }
     try {
       await mechanicsAPI.updateProfile(payload)
@@ -219,7 +222,7 @@ export function MechanicProfileScreen() {
     }
   }
 
-  const toggleMulti = (key: 'vehicleTypes' | 'expertise', value: string) => {
+  const toggleMulti = (key: 'vehicleTypes' | 'expertise' | 'brands', value: string) => {
     setForm((f) => {
       const arr = f[key]
       const next = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value]
@@ -295,6 +298,15 @@ export function MechanicProfileScreen() {
           <Ionicons name="chevron-down" size={18} color={colors.neutral[500]} />
         </TouchableOpacity>
 
+        <Text style={styles.sectionLabel}>Car brands you work on</Text>
+        <Text style={styles.hintText}>Select the brands you can service (e.g. Toyota, Honda).</Text>
+        <TouchableOpacity style={styles.selectChip} onPress={() => { setPickerOpen('brands'); setPickerValue(form.brands); }}>
+          <Text style={styles.selectChipText}>
+            {form.brands.length ? form.brands.join(', ') : 'Select'}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color={colors.neutral[500]} />
+        </TouchableOpacity>
+
         <Text style={styles.sectionLabel}>Workshop location</Text>
         <View style={styles.formGroup}>
           <Input
@@ -345,12 +357,19 @@ export function MechanicProfileScreen() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPickerOpen(null)}>
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>{pickerOpen === 'vehicleTypes' ? 'Vehicle types' : 'Expertise'}</Text>
+            <Text style={styles.modalTitle}>
+              {pickerOpen === 'vehicleTypes' ? 'Vehicle types' : pickerOpen === 'expertise' ? 'Expertise' : 'Car brands'}
+            </Text>
             <FlatList
-              data={(pickerOpen === 'vehicleTypes' ? MECHANIC_VEHICLE_TYPES : EXPERTISE_OPTIONS) as unknown as Array<{ value: string; label: string }>}
+              data={
+                pickerOpen === 'brands'
+                  ? (CAR_BRANDS.map((b) => ({ value: b, label: b })) as Array<{ value: string; label: string }>)
+                  : (pickerOpen === 'vehicleTypes' ? MECHANIC_VEHICLE_TYPES : EXPERTISE_OPTIONS) as unknown as Array<{ value: string; label: string }>
+              }
               keyExtractor={(item) => item.value}
               renderItem={({ item }) => {
-                const selected = form[pickerOpen === 'vehicleTypes' ? 'vehicleTypes' : 'expertise'].includes(item.value)
+                const key = pickerOpen === 'vehicleTypes' ? 'vehicleTypes' : pickerOpen === 'expertise' ? 'expertise' : 'brands'
+                const selected = form[key].includes(item.value)
                 return (
                   <TouchableOpacity
                     style={styles.pickerItem}
@@ -399,6 +418,7 @@ const styles = StyleSheet.create({
   bioInput: { borderWidth: 1, borderColor: colors.neutral[200], borderRadius: 12, padding: 14, fontSize: 15, minHeight: 88, color: colors.text },
   selectChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.neutral[200], borderRadius: 12, padding: 14, marginTop: 8 },
   selectChipText: { fontSize: 15, color: colors.text },
+  hintText: { fontSize: 12, color: colors.neutral[500], marginTop: 4, marginBottom: 4 },
   formBtn: { marginTop: 12 },
   row: { flexDirection: 'row', gap: 12, marginTop: 4 },
   half: { flex: 1 },

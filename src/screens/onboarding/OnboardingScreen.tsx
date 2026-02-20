@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { setOnboardingComplete } from '../../utils/onboarding'
 import { colors } from '../../theme/colors'
@@ -83,6 +83,9 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 48,
   },
+  brandHeader: { alignItems: 'center', paddingTop: 24, paddingBottom: 16 },
+  brandLogo: { width: 56, height: 56 },
+  brandName: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 8 },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   iconWrap: {
     width: 140,

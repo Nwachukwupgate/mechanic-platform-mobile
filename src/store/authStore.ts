@@ -17,7 +17,9 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   hydrated: boolean
+  justLoggedIn: boolean
   setAuth: (user: User, token: string) => void
+  clearJustLoggedIn: () => void
   logout: () => void
   hydrate: () => void
 }
@@ -28,14 +30,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   hydrated: false,
 
+  justLoggedIn: false,
+
   setAuth: (user, token) => {
-    const data = { user, token, isAuthenticated: true }
+    const data = { user, token, isAuthenticated: true, justLoggedIn: true }
     set(data)
-    void AsyncStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(data))
+    void AsyncStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify({ user, token, isAuthenticated: true }))
   },
 
+  clearJustLoggedIn: () => set({ justLoggedIn: false }),
+
   logout: () => {
-    set({ user: null, token: null, isAuthenticated: false })
+    set({ user: null, token: null, isAuthenticated: false, justLoggedIn: false })
     void AsyncStorage.removeItem(STORAGE_KEYS.AUTH)
   },
 

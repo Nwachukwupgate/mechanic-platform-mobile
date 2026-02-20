@@ -18,7 +18,7 @@ export function MapBackground({
 }: MapBackgroundProps) {
   const overlayColor =
     variant === 'dark'
-      ? 'rgba(49, 46, 129, 0.82)'
+      ? 'rgba(3, 46, 27, 0.88)'
       : 'rgba(248, 250, 252, 0.92)'
 
   return (

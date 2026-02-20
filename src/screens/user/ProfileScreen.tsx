@@ -56,6 +56,21 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
             <Text style={styles.email}>{profile?.email}</Text>
           </View>
         </View>
+        <Text style={styles.sectionLabel}>Profile details</Text>
+        <View style={styles.readOnlyBlock}>
+          <View style={styles.readOnlyRow}>
+            <Text style={styles.readOnlyLabel}>First name</Text>
+            <Text style={styles.readOnlyValue}>{profile?.firstName || '—'}</Text>
+          </View>
+          <View style={styles.readOnlyRow}>
+            <Text style={styles.readOnlyLabel}>Last name</Text>
+            <Text style={styles.readOnlyValue}>{profile?.lastName || '—'}</Text>
+          </View>
+          <View style={[styles.readOnlyRow, styles.readOnlyRowLast]}>
+            <Text style={styles.readOnlyLabel}>Email</Text>
+            <Text style={styles.readOnlyValue}>{profile?.email || '—'}</Text>
+          </View>
+        </View>
         <Text style={styles.sectionLabel}>Contact</Text>
         <View style={styles.formBlock}>
           <Input label="Phone" value={phone} onChangeText={setPhone} />
@@ -100,6 +115,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
+  readOnlyBlock: { backgroundColor: colors.neutral[50], borderRadius: 12, padding: 14, marginBottom: 8 },
+  readOnlyRow: { marginBottom: 12 },
+  readOnlyRowLast: { marginBottom: 0 },
+  readOnlyLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  readOnlyValue: { fontSize: 15, color: colors.text },
   formBlock: {},
   inputSpaced: { marginTop: 4 },
   err: { color: colors.accent.red, fontSize: 14, marginTop: 12, marginBottom: 4 },
