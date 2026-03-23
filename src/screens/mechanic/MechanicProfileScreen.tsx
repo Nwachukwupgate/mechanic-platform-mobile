@@ -88,6 +88,7 @@ export function MechanicProfileScreen() {
           guarantorAddress: p?.guarantorAddress ?? '',
           vehicleTypes: Array.isArray(p?.vehicleTypes) ? p.vehicleTypes : [],
           expertise: Array.isArray(p?.expertise) ? p.expertise : [],
+          brands: Array.isArray(p?.brands) ? p.brands : [],
         })
       })
       .catch(() => {})
@@ -187,7 +188,7 @@ export function MechanicProfileScreen() {
       guarantorAddress: form.guarantorAddress.trim() || undefined,
       vehicleTypes: form.vehicleTypes.length ? form.vehicleTypes : undefined,
       expertise: form.expertise.length ? form.expertise : undefined,
-      brands: form.brands.length ? form.brands : undefined,
+      brands: (form.brands ?? []).length ? (form.brands ?? []) : undefined,
     }
     try {
       await mechanicsAPI.updateProfile(payload)
@@ -253,8 +254,8 @@ export function MechanicProfileScreen() {
           />
         </View>
 
-        <Text style={styles.name}>{profile?.companyName || user?.companyName}</Text>
-        <Text style={styles.email}>{profile?.ownerFullName || user?.email}</Text>
+        <Text style={styles.name}>{profile?.companyName ?? user?.companyName ?? '—'}</Text>
+        <Text style={styles.email}>{profile?.ownerFullName ?? user?.email ?? '—'}</Text>
 
         <View style={styles.availRow}>
           <Text style={styles.availLabel}>Availability</Text>
@@ -300,9 +301,9 @@ export function MechanicProfileScreen() {
 
         <Text style={styles.sectionLabel}>Car brands you work on</Text>
         <Text style={styles.hintText}>Select the brands you can service (e.g. Toyota, Honda).</Text>
-        <TouchableOpacity style={styles.selectChip} onPress={() => { setPickerOpen('brands'); setPickerValue(form.brands); }}>
+        <TouchableOpacity style={styles.selectChip} onPress={() => { setPickerOpen('brands'); setPickerValue(form.brands ?? []); }}>
           <Text style={styles.selectChipText}>
-            {form.brands.length ? form.brands.join(', ') : 'Select'}
+            {(form.brands ?? []).length ? (form.brands ?? []).join(', ') : 'Select'}
           </Text>
           <Ionicons name="chevron-down" size={18} color={colors.neutral[500]} />
         </TouchableOpacity>
@@ -369,7 +370,7 @@ export function MechanicProfileScreen() {
               keyExtractor={(item) => item.value}
               renderItem={({ item }) => {
                 const key = pickerOpen === 'vehicleTypes' ? 'vehicleTypes' : pickerOpen === 'expertise' ? 'expertise' : 'brands'
-                const selected = form[key].includes(item.value)
+                const selected = (form[key] ?? []).includes(item.value)
                 return (
                   <TouchableOpacity
                     style={styles.pickerItem}

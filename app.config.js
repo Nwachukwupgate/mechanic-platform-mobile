@@ -15,6 +15,15 @@ module.exports = {
         owner: 'treyp99s-organization',
       },
     },
+    ios: {
+      ...base.ios,
+      bundleIdentifier: 'com.anonymous.mechanicplatformmobile',
+      buildNumber: '2',
+      infoPlist: {
+        ...base.ios?.infoPlist,
+        ITSAppUsesNonExemptEncryption: false,
+      },
+    },
     android: {
       ...base.android,
       package: 'com.anonymous.mechanicplatformmobile',
