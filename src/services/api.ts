@@ -97,6 +97,8 @@ export const authAPI = {
 export const usersAPI = {
   getProfile: () => api.get('/users/me'),
   updateProfile: (d: object) => api.put('/users/me/profile', d),
+  deleteAccount: (d: { reasons: string[]; otherReason?: string }) =>
+    api.post('/users/me/delete-account', d),
 }
 
 export const mechanicsAPI = {
@@ -152,6 +154,7 @@ export const mechanicsAPI = {
     api.put(`/mechanics/me/bank-accounts/${accountId}/default`),
   deleteBankAccount: (accountId: string) =>
     api.delete(`/mechanics/me/bank-accounts/${accountId}`),
+  deleteAccount: () => api.post('/mechanics/me/delete-account'),
 }
 
 export const vehiclesAPI = {

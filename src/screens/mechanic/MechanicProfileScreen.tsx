@@ -40,6 +40,7 @@ export function MechanicProfileScreen() {
   const [error, setError] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [uploadingCert, setUploadingCert] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const [pickerOpen, setPickerOpen] = useState<'vehicleTypes' | 'expertise' | 'brands' | null>(null)
   const [pickerValue, setPickerValue] = useState<string[]>([])
   const { getLocation, locationState } = useCurrentLocation()
@@ -223,6 +224,33 @@ export function MechanicProfileScreen() {
     }
   }
 
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete your account?',
+      'Your profile and bank details will be removed. Past bookings and ratings may be kept for records. You will be signed out. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setDeletingAccount(true)
+              try {
+                await mechanicsAPI.deleteAccount()
+                logout()
+              } catch (e: any) {
+                Alert.alert('Could not delete account', getApiErrorMessage(e))
+              } finally {
+                setDeletingAccount(false)
+              }
+            })()
+          },
+        },
+      ],
+    )
+  }
+
   const toggleMulti = (key: 'vehicleTypes' | 'expertise' | 'brands', value: string) => {
     setForm((f) => {
       const arr = f[key]
@@ -352,6 +380,25 @@ export function MechanicProfileScreen() {
         {error ? <Text style={styles.err}>{error}</Text> : null}
         <Button title="Save changes" onPress={save} loading={saving} style={styles.saveBtn} />
       </Card>
+
+      <View style={styles.dangerZone}>
+        <Text style={styles.dangerZoneTitle}>Account</Text>
+        <Text style={styles.dangerHint}>
+          Need to leave the platform? You can remove your workshop profile permanently.
+        </Text>
+        <TouchableOpacity
+          style={[styles.deleteAccountBtn, deletingAccount && { opacity: 0.6 }]}
+          onPress={confirmDeleteAccount}
+          disabled={deletingAccount}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="trash-outline" size={20} color="#fff" />
+          <Text style={[styles.deleteAccountBtnText, { marginLeft: 10 }]}>
+            {deletingAccount ? 'Deleting…' : 'Delete account'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <Button title="Sign out" onPress={() => logout()} variant="outline" style={styles.logout} />
 
       <Modal visible={pickerOpen !== null} transparent animationType="slide">
@@ -427,7 +474,35 @@ const styles = StyleSheet.create({
   certBtn: { marginTop: 10 },
   err: { color: colors.accent.red, fontSize: 14, marginTop: 14 },
   saveBtn: { marginTop: 20 },
-  logout: { marginTop: 28 },
+  dangerZone: {
+    marginTop: 8,
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  dangerZoneTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[500],
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  dangerHint: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent.red,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  deleteAccountBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  logout: { marginTop: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', padding: 20, paddingBottom: 32 },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.neutral[300], alignSelf: 'center', marginBottom: 12 },

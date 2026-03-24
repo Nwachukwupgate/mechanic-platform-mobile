@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { usersAPI, getApiErrorMessage } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
@@ -8,6 +8,7 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
+import { DeleteAccountSheet } from '../../components/DeleteAccountSheet'
 
 export function ProfileScreen({ navigation }: { navigation: any }) {
   const user = useAuthStore((s) => s.user)
@@ -18,6 +19,8 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [deleteSheetOpen, setDeleteSheetOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     usersAPI.getProfile()
@@ -39,6 +42,19 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
       setError(getApiErrorMessage(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async (payload: { reasons: string[]; otherReason?: string }) => {
+    setDeleting(true)
+    try {
+      await usersAPI.deleteAccount(payload)
+      setDeleteSheetOpen(false)
+      logout()
+    } catch (e: any) {
+      Alert.alert('Could not delete account', getApiErrorMessage(e))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -95,6 +111,25 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
         </TouchableOpacity>
       </View>
       <Button title="Sign out" onPress={() => logout()} variant="outline" style={styles.logout} />
+
+      <View style={styles.dangerZone}>
+        <Text style={styles.dangerZoneTitle}>Account</Text>
+        <TouchableOpacity
+          style={styles.deleteLink}
+          onPress={() => setDeleteSheetOpen(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.accent.red} />
+          <Text style={[styles.deleteLinkText, { marginLeft: 10 }]}>Delete account</Text>
+        </TouchableOpacity>
+      </View>
+
+      <DeleteAccountSheet
+        visible={deleteSheetOpen}
+        onClose={() => setDeleteSheetOpen(false)}
+        onConfirm={handleDeleteAccount}
+        loading={deleting}
+      />
     </ScrollView>
   )
 }
@@ -147,4 +182,24 @@ const styles = StyleSheet.create({
   linkIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary[50], alignItems: 'center', justifyContent: 'center' },
   linkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
   logout: { marginTop: 28 },
+  dangerZone: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+  },
+  dangerZoneTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[500],
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  deleteLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  deleteLinkText: { fontSize: 16, fontWeight: '600', color: colors.accent.red },
 })
