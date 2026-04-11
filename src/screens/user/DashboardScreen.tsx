@@ -1,9 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '../../store/authStore'
 import { bookingsAPI } from '../../services/api'
 import { colors } from '../../theme/colors'
+import { gradients } from '../../theme/gradients'
+import { typography } from '../../theme/typography'
+import { fonts } from '../../theme/fonts'
 import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
 import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
@@ -51,28 +55,34 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       contentContainerStyle={styles.scroll}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />}
     >
-      <AnimatedFadeIn>
-        <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
-        <Text style={styles.greetingSub}>Here’s your booking overview.</Text>
-      </AnimatedFadeIn>
+      <LinearGradient colors={[...gradients.heroRich]} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        <AnimatedFadeIn>
+          <View style={styles.heroBadge}>
+            <Ionicons name="sparkles" size={14} color={colors.primary[700]} />
+            <Text style={styles.heroBadgeText}>Your garage, in your pocket</Text>
+          </View>
+          <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
+          <Text style={styles.greetingSub}>Track quotes, chat, and payments in one place.</Text>
+        </AnimatedFadeIn>
+      </LinearGradient>
 
       <View style={styles.statsRow}>
         <AnimatedFadeIn delay={0} duration={280}>
-          <View style={styles.statBox}>
+          <View style={[styles.statBox, { borderTopColor: colors.primary[500] }]}>
             <IconBadge name="time" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
             <Text style={styles.statValue}>{active}</Text>
             <Text style={styles.statLabel}>Active</Text>
           </View>
         </AnimatedFadeIn>
         <AnimatedFadeIn delay={60} duration={280}>
-          <View style={styles.statBox}>
+          <View style={[styles.statBox, { borderTopColor: colors.accent.violet }]}>
             <IconBadge name="document-text" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
             <Text style={styles.statValue}>{total}</Text>
             <Text style={styles.statLabel}>Total</Text>
           </View>
         </AnimatedFadeIn>
         <AnimatedFadeIn delay={120} duration={280}>
-          <View style={styles.statBox}>
+          <View style={[styles.statBox, { borderTopColor: colors.accent.green }]}>
             <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
             <Text style={styles.statValue}>{completed}</Text>
             <Text style={styles.statLabel}>Completed</Text>
@@ -117,30 +127,48 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       )}
 
       <AnimatedFadeIn delay={220} duration={300}>
-      <Card style={styles.card}>
-        <View style={styles.cardIconWrap}>
-          <IconBadge name="car-sport" size={28} color={colors.primary[600]} backgroundColor={colors.primary[100]} style={styles.cardIconBadge} />
-        </View>
-        <Text style={styles.cardTitle}>Find a mechanic</Text>
-        <Text style={styles.cardSub}>Select your vehicle and issue, then search for nearby verified mechanics or post a job for quotes.</Text>
-        <TouchableOpacity style={styles.cardBtn} onPress={() => navigation.navigate('FindMechanics')} activeOpacity={0.8}>
-          <Text style={styles.cardBtnText}>Find mechanics</Text>
-          <Ionicons name="arrow-forward" size={18} color={colors.primary[600]} />
-        </TouchableOpacity>
-      </Card>
+        <LinearGradient
+          colors={[colors.surface, colors.primary[50]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.featureShell}
+        >
+          <Card style={styles.cardInner}>
+            <View style={styles.cardIconWrap}>
+              <IconBadge name="car-sport" size={28} color={colors.primary[600]} backgroundColor={colors.primary[100]} style={styles.cardIconBadge} />
+            </View>
+            <Text style={styles.cardTitle}>Find a mechanic</Text>
+            <Text style={styles.cardSub}>Search nearby verified workshops or post a job and compare quotes.</Text>
+            <TouchableOpacity style={styles.cardBtn} onPress={() => navigation.navigate('FindMechanics')} activeOpacity={0.8}>
+              <Text style={styles.cardBtnText}>Find mechanics</Text>
+              <View style={styles.cardBtnIcon}>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
+              </View>
+            </TouchableOpacity>
+          </Card>
+        </LinearGradient>
       </AnimatedFadeIn>
       <AnimatedFadeIn delay={280} duration={300}>
-      <Card style={styles.card}>
-        <View style={styles.cardIconWrap}>
-          <IconBadge name="list" size={28} color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} style={styles.cardIconBadge} />
-        </View>
-        <Text style={styles.cardTitle}>My bookings</Text>
-        <Text style={styles.cardSub}>View and manage your service requests.</Text>
-        <TouchableOpacity style={styles.cardBtn} onPress={() => navigation.navigate('Bookings')} activeOpacity={0.8}>
-          <Text style={styles.cardBtnText}>View bookings</Text>
-          <Ionicons name="arrow-forward" size={18} color={colors.primary[600]} />
-        </TouchableOpacity>
-      </Card>
+        <LinearGradient
+          colors={[colors.surface, colors.accent[50]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.featureShell}
+        >
+          <Card style={styles.cardInner}>
+            <View style={styles.cardIconWrap}>
+              <IconBadge name="list" size={28} color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} style={styles.cardIconBadge} />
+            </View>
+            <Text style={styles.cardTitle}>My bookings</Text>
+            <Text style={styles.cardSub}>Open a job to chat, pay, and rate when you’re done.</Text>
+            <TouchableOpacity style={styles.cardBtn} onPress={() => navigation.navigate('Bookings')} activeOpacity={0.8}>
+              <Text style={styles.cardBtnText}>View bookings</Text>
+              <View style={styles.cardBtnIcon}>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
+              </View>
+            </TouchableOpacity>
+          </Card>
+        </LinearGradient>
       </AnimatedFadeIn>
       <AnimatedFadeIn delay={340}>
       <View style={styles.quickLinks}>
@@ -178,45 +206,115 @@ function statusColor(status: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 16, paddingBottom: 32 },
-  greeting: { fontSize: 24, fontWeight: '700', color: colors.text },
-  greetingSub: { fontSize: 15, color: colors.textSecondary, marginTop: 4, marginBottom: 20 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  scroll: { paddingBottom: 32 },
+  hero: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+    shadowColor: colors.primary[700],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.surface + 'ee',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+  },
+  heroBadgeText: { ...typography.captionStrong, fontSize: 12, color: colors.primary[800] },
+  greeting: { ...typography.title, color: colors.text },
+  greetingSub: { ...typography.body, color: colors.textSecondary, marginTop: 8, lineHeight: 22 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24, paddingHorizontal: 16 },
   statBox: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderTopWidth: 3,
+    shadowColor: colors.primary[900],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  statValue: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: 8 },
-  statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: colors.text },
-  seeAll: { fontSize: 14, fontWeight: '600', color: colors.primary[600] },
-  recentCard: { marginBottom: 10 },
+  statValue: { fontFamily: fonts.bold, fontSize: 22, color: colors.text, marginTop: 8 },
+  statLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingHorizontal: 16 },
+  sectionTitle: { ...typography.section, color: colors.text },
+  seeAll: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.primary[600] },
+  recentCard: { marginBottom: 10, marginHorizontal: 16 },
   recentCardInner: { flexDirection: 'row', alignItems: 'center' },
   recentIcon: { width: 40, height: 40, borderRadius: 20 },
   recentContent: { flex: 1, marginLeft: 14 },
-  recentVehicle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  recentVehicle: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.text },
   recentFaultRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  recentFault: { fontSize: 14, color: colors.textSecondary },
+  recentFault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
   statusChip: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 8 },
-  statusChipText: { fontSize: 12, fontWeight: '600', color: colors.text },
-  card: { marginBottom: 16 },
+  statusChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.text },
+  featureShell: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 24,
+    padding: 2,
+    overflow: 'hidden',
+  },
+  cardInner: { marginBottom: 0, borderWidth: 0, shadowOpacity: 0, elevation: 0 },
   cardIconWrap: { marginBottom: 4 },
   cardIconBadge: { width: 48, height: 48, borderRadius: 24 },
-  cardTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 8 },
-  cardSub: { fontSize: 14, color: colors.textSecondary, marginTop: 4, lineHeight: 20 },
-  cardBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
-  cardBtnText: { fontSize: 16, color: colors.primary[600], fontWeight: '600' },
-  quickLinks: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  quickLink: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 14, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.neutral[100] },
+  cardTitle: { ...typography.section, color: colors.text, marginTop: 8 },
+  cardSub: { ...typography.caption, color: colors.textSecondary, marginTop: 6, lineHeight: 20 },
+  cardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    backgroundColor: colors.primary[600],
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+  },
+  cardBtnText: { fontFamily: fonts.semiBold, fontSize: 16, color: '#fff' },
+  cardBtnIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLinks: { flexDirection: 'row', gap: 12, marginTop: 8, paddingHorizontal: 16 },
+  quickLink: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   quickLinkIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary[50], alignItems: 'center', justifyContent: 'center' },
-  quickLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
+  quickLinkText: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.primary[600] },
 })

@@ -40,7 +40,8 @@ export const colors = {
     800: '#1e293b',
     900: '#0f172a',
   },
-  background: '#f8fafc',
+  /** Slight green cast — reads warmer than flat gray */
+  background: '#f2f7f4',
   surface: '#ffffff',
   text: '#0f172a',
   textSecondary: '#64748b',

@@ -27,7 +27,6 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const { id } = route.params
   const [booking, setBooking] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [accepting, setAccepting] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [cost, setCost] = useState('')
   const [updatingCost, setUpdatingCost] = useState(false)
@@ -66,18 +65,6 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     const unsubMsg = onNewMessage((data) => { if (data.bookingId === id) load() })
     return () => { unsubQuote(); unsubMsg() }
   }, [id, load])
-
-  const accept = async () => {
-    setAccepting(true)
-    try {
-      await bookingsAPI.acceptBooking(id)
-      load()
-    } catch (e: any) {
-      Alert.alert('Error', getApiErrorMessage(e))
-    } finally {
-      setAccepting(false)
-    }
-  }
 
   const updateStatus = async (status: string) => {
     setUpdatingStatus(true)
@@ -162,8 +149,11 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   if (loading || !booking) return <LoadingOverlay />
 
   const status = booking.status
-  const isOpenRequest = status === 'REQUESTED' && !booking.mechanicId
+  const canQuoteWhileRequested =
+    status === 'REQUESTED' &&
+    (!booking.mechanicId || booking.mechanicId === currentUserId)
   const messages = booking.messages || []
+  const chatReleased = booking.mechanicId && booking.status !== 'REQUESTED'
   const hasLocation =
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
@@ -188,8 +178,8 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
             </>
           ) : null}
 
-          {/* Open request: quote + clarification */}
-          {isOpenRequest && (
+          {/* Quote + clarification while job is open (board or sent to this mechanic) */}
+          {canQuoteWhileRequested && (
             <>
               <Text style={styles.sectionLabel}>Your quote</Text>
               {myQuote ? (
@@ -240,10 +230,12 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
             </>
           )}
 
-          {/* Assigned booking flow */}
-          {status === 'REQUESTED' && booking.mechanicId && (
-            <Button title="Accept booking" onPress={accept} loading={accepting} style={styles.actionBtn} />
+          {status === 'REQUESTED' && booking.mechanicId === currentUserId && (
+            <Text style={styles.waitingHint}>
+              The customer chose your garage. Send a quote above; they’ll accept it to confirm the job and open chat.
+            </Text>
           )}
+
           {status === 'ACCEPTED' && (
             <Button title="Start work" onPress={() => updateStatus('IN_PROGRESS')} loading={updatingStatus} style={styles.actionBtn} />
           )}
@@ -279,11 +271,20 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
 
         <View style={styles.chatSection}>
           <Text style={styles.sectionTitle}>Chat</Text>
-          <BookingChat
-            bookingId={id}
-            messages={messages}
-            onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
-          />
+          {chatReleased ? (
+            <BookingChat
+              bookingId={id}
+              messages={messages}
+              onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
+            />
+          ) : (
+            <Card style={styles.chatPlaceholder}>
+              <Text style={styles.chatPlaceholderTitle}>Chat after quote is accepted</Text>
+              <Text style={styles.chatPlaceholderText}>
+                Submit your price above. Once the customer accepts your quote, you can message each other here.
+              </Text>
+            </Card>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -362,6 +363,18 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   actionBtn: { marginTop: 20 },
+  waitingHint: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: colors.primary[50],
+    borderRadius: 12,
+  },
+  chatPlaceholder: { padding: 16 },
+  chatPlaceholderTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  chatPlaceholderText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
   costRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 16 },
   costInput: { flex: 1, marginBottom: 0 },
   cost: { fontSize: 17, fontWeight: '700', color: colors.text, marginTop: 12 },

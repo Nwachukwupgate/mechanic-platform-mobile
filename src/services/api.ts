@@ -97,6 +97,7 @@ export const authAPI = {
 export const usersAPI = {
   getProfile: () => api.get('/users/me'),
   updateProfile: (d: object) => api.put('/users/me/profile', d),
+  setPushToken: (token: string | null) => api.put('/users/me/push-token', { token }),
   deleteAccount: (d: { reasons: string[]; otherReason?: string }) =>
     api.post('/users/me/delete-account', d),
 }
@@ -104,6 +105,7 @@ export const usersAPI = {
 export const mechanicsAPI = {
   getAll: () => api.get('/mechanics'),
   getById: (id: string) => api.get(`/mechanics/${id}`),
+  setPushToken: (token: string | null) => api.put('/mechanics/me/push-token', { token }),
   getProfile: () => api.get('/mechanics/me/profile'),
   updateProfile: (d: object) => api.put('/mechanics/me/profile', d),
   updateAvailability: (a: boolean) =>

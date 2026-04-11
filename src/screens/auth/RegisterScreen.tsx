@@ -5,6 +5,8 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import { authAPI, getApiErrorMessage } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
 import { colors } from '../../theme/colors'
+import { typography } from '../../theme/typography'
+import { fonts } from '../../theme/fonts'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Card } from '../../components/Card'
@@ -171,12 +173,12 @@ const styles = StyleSheet.create({
   scroll: { padding: 24, paddingTop: 48, paddingBottom: 48 },
   header: { alignItems: 'center', marginBottom: 16 },
   logo: { width: 64, height: 64, marginBottom: 8 },
-  brandName: { fontSize: 18, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text },
+  brandName: { fontFamily: fonts.semiBold, fontSize: 18, color: colors.textSecondary, marginBottom: 4 },
+  title: { ...typography.title, color: colors.text },
   roleRow: { flexDirection: 'row', gap: 12, marginBottom: 16, marginTop: 8 },
   roleBtn: { flex: 1 },
   dateWrap: { marginBottom: 16 },
-  dateLabel: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: 6 },
+  dateLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.text, marginBottom: 6 },
   dateTouch: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.surface,
   },
-  dateText: { fontSize: 16, color: colors.text },
+  dateText: { fontFamily: fonts.regular, fontSize: 16, color: colors.text },
   datePlaceholder: { color: colors.neutral[400] },
   iosDateActions: { flexDirection: 'row', marginTop: 8 },
   iosDateBtn: { flex: 1 },

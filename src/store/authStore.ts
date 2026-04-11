@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { STORAGE_KEYS } from '../constants/storage'
 
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'https://mechanic.internalops.pro'
+
 export interface User {
   id: string
   email: string
@@ -41,8 +44,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearJustLoggedIn: () => set({ justLoggedIn: false }),
 
   logout: () => {
+    const { user, token } = get()
     set({ user: null, token: null, isAuthenticated: false, justLoggedIn: false })
     void AsyncStorage.removeItem(STORAGE_KEYS.AUTH)
+
+    if (user && token && (user.role === 'USER' || user.role === 'MECHANIC')) {
+      const path =
+        user.role === 'USER' ? '/users/me/push-token' : '/mechanics/me/push-token'
+      void fetch(`${API_URL}${path}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ token: null }),
+      }).catch(() => {})
+    }
   },
 
   hydrate: () => {

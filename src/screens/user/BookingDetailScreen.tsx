@@ -187,6 +187,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const messages = booking.messages || []
   const clarifications = booking.clarifications || []
   const pendingQuotes = quotes.filter((q: any) => q.status === 'PENDING')
+  const chatReleased = booking.mechanicId && booking.status !== 'REQUESTED'
   const canPay =
     PAYMENT_STATUSES.includes(booking.status) &&
     !booking.paidAt &&
@@ -219,7 +220,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
 
           {/* Job details / description */}
           <Text style={styles.sectionLabel}>Job details</Text>
-          {editingDescription ? (
+          {booking.status === 'REQUESTED' && editingDescription ? (
             <>
               <TextInput
                 style={styles.descriptionInput}
@@ -246,14 +247,29 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               <Text style={styles.descriptionText}>
                 {booking.description || 'No description added.'}
               </Text>
-              <TouchableOpacity onPress={() => setEditingDescription(true)}>
-                <Text style={styles.editLink}>Edit description</Text>
-              </TouchableOpacity>
+              {booking.status === 'REQUESTED' ? (
+                <TouchableOpacity onPress={() => setEditingDescription(true)}>
+                  <Text style={styles.editLink}>Edit description</Text>
+                </TouchableOpacity>
+              ) : null}
             </>
           )}
 
-          {/* Quotes (open request) */}
-          {booking.status === 'REQUESTED' && !booking.mechanicId && pendingQuotes.length > 0 && (
+          {booking.status === 'REQUESTED' &&
+            booking.mechanicId &&
+            pendingQuotes.length === 0 && (
+              <Card style={styles.waitingCard}>
+                <Text style={styles.waitingTitle}>
+                  Waiting for {booking.mechanic?.companyName ?? 'the mechanic'} to send a quote
+                </Text>
+                <Text style={styles.waitingText}>
+                  You can chat once you accept their price.
+                </Text>
+              </Card>
+            )}
+
+          {/* Quotes while request is open (job board or direct to one mechanic) */}
+          {booking.status === 'REQUESTED' && pendingQuotes.length > 0 && (
             <>
               <Text style={styles.sectionLabel}>Quotes from mechanics</Text>
               {pendingQuotes.map((q: any) => (
@@ -371,11 +387,22 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
 
         <View style={styles.chatSection}>
           <Text style={styles.sectionTitle}>Chat</Text>
-          <BookingChat
-          bookingId={id}
-          messages={messages}
-          onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
-        />
+          {chatReleased ? (
+            <BookingChat
+              bookingId={id}
+              messages={messages}
+              onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
+            />
+          ) : (
+            <Card style={styles.chatPlaceholder}>
+              <Text style={styles.chatPlaceholderTitle}>Chat after you accept a quote</Text>
+              <Text style={styles.chatPlaceholderText}>
+                {booking.mechanicId
+                  ? 'Accept the mechanic’s quote above to start messaging about this job.'
+                  : 'Accept one of the quotes above to message your chosen mechanic.'}
+              </Text>
+            </Card>
+          )}
         </View>
       </ScrollView>
 
@@ -520,6 +547,18 @@ const styles = StyleSheet.create({
   mapLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
   rateBtn: { marginTop: 20 },
   chatSection: { marginTop: 28 },
+  waitingCard: {
+    marginTop: 16,
+    padding: 14,
+    backgroundColor: colors.accent.amber + '18',
+    borderWidth: 1,
+    borderColor: colors.accent.amber + '44',
+  },
+  waitingTitle: { fontSize: 15, fontWeight: '700', color: colors.text, lineHeight: 22 },
+  waitingText: { fontSize: 14, color: colors.textSecondary, marginTop: 6, lineHeight: 20 },
+  chatPlaceholder: { padding: 16 },
+  chatPlaceholderTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  chatPlaceholderText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',

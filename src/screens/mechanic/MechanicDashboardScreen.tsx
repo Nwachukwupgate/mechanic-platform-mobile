@@ -1,9 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '../../store/authStore'
 import { bookingsAPI } from '../../services/api'
 import { colors } from '../../theme/colors'
+import { gradients } from '../../theme/gradients'
+import { typography } from '../../theme/typography'
+import { fonts } from '../../theme/fonts'
 import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
@@ -66,33 +70,64 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />
       }
     >
-      <AnimatedFadeIn>
-        <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
-        <Text style={styles.greetingSub}>Here’s your job overview.</Text>
-      </AnimatedFadeIn>
+      <LinearGradient colors={[...gradients.heroRich]} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        <AnimatedFadeIn>
+          <View style={styles.heroBadge}>
+            <Ionicons name="briefcase" size={14} color={colors.primary[700]} />
+            <Text style={styles.heroBadgeText}>Workshop dashboard</Text>
+          </View>
+          <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
+          <Text style={styles.greetingSub}>Quote open jobs, chat with customers, get paid.</Text>
+        </AnimatedFadeIn>
+      </LinearGradient>
       <View style={styles.statsRow}>
         <AnimatedFadeIn delay={0} duration={280}>
-          <View style={styles.statBox}>
+          <View style={[styles.statBox, { borderTopColor: colors.primary[500] }]}>
             <IconBadge name="document-text-outline" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
             <Text style={styles.statValue}>{openRequests.length}</Text>
-            <Text style={styles.statLabel}>Open requests</Text>
+            <Text style={styles.statLabel}>Open</Text>
           </View>
         </AnimatedFadeIn>
         <AnimatedFadeIn delay={60} duration={280}>
-          <View style={styles.statBox}>
+          <View style={[styles.statBox, { borderTopColor: colors.accent.violet }]}>
             <IconBadge name="time" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
             <Text style={styles.statValue}>{active.length}</Text>
             <Text style={styles.statLabel}>Active</Text>
           </View>
         </AnimatedFadeIn>
         <AnimatedFadeIn delay={120} duration={280}>
-          <View style={styles.statBox}>
+          <View style={[styles.statBox, { borderTopColor: colors.accent.green }]}>
             <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
             <Text style={styles.statValue}>{completed.length}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
+            <Text style={styles.statLabel}>Done</Text>
           </View>
         </AnimatedFadeIn>
       </View>
+
+      {pending.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Sent to you — send a quote</Text>
+          {pending.slice(0, 5).map((b: any) => (
+            <TouchableOpacity
+              key={b.id}
+              onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
+              activeOpacity={0.8}
+            >
+              <Card style={styles.bookingCard}>
+                <View style={styles.bookingCardInner}>
+                  <IconBadge name="person" size={20} color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} style={styles.bookingIcon} />
+                  <View style={styles.bookingContent}>
+                    <Text style={styles.vehicle}>{b.vehicle?.brand} {b.vehicle?.model}</Text>
+                    <Text style={styles.fault}>{b.fault?.name}</Text>
+                    <Text style={styles.openLabel}>Direct request · tap to quote</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
 
       {openRequests.length > 0 && (
         <>
@@ -168,30 +203,34 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         </>
       )}
 
-      <TouchableOpacity
-        style={styles.primaryCard}
-        onPress={() => navigation.navigate('Bookings')}
-        activeOpacity={0.8}
-      >
-        <IconBadge name="briefcase" size={28} color={colors.primary[600]} backgroundColor={colors.primary[100]} style={styles.primaryCardIcon} />
-        <View style={styles.primaryCardText}>
-          <Text style={styles.primaryCardTitle}>View all bookings</Text>
-          <Text style={styles.primaryCardSub}>Manage and filter your jobs</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={22} color={colors.neutral[400]} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.primaryCard}
-        onPress={() => navigation.getParent()?.navigate('MechanicJobHistory')}
-        activeOpacity={0.8}
-      >
-        <IconBadge name="checkmark-done" size={28} color={colors.accent.green} backgroundColor={colors.accent.green + '22'} style={styles.primaryCardIcon} />
-        <View style={styles.primaryCardText}>
-          <Text style={styles.primaryCardTitle}>Job history</Text>
-          <Text style={styles.primaryCardSub}>Completed jobs only</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={22} color={colors.neutral[400]} />
-      </TouchableOpacity>
+      <LinearGradient colors={[colors.surface, colors.primary[50]]} style={styles.primaryCardShell}>
+        <TouchableOpacity style={styles.primaryCard} onPress={() => navigation.navigate('Bookings')} activeOpacity={0.8}>
+          <IconBadge name="briefcase" size={28} color={colors.primary[600]} backgroundColor={colors.primary[100]} style={styles.primaryCardIcon} />
+          <View style={styles.primaryCardText}>
+            <Text style={styles.primaryCardTitle}>All bookings</Text>
+            <Text style={styles.primaryCardSub}>Filter and update job status</Text>
+          </View>
+          <View style={styles.primaryCardChevron}>
+            <Ionicons name="chevron-forward" size={20} color={colors.primary[600]} />
+          </View>
+        </TouchableOpacity>
+      </LinearGradient>
+      <LinearGradient colors={[colors.surface, colors.accent[50]]} style={styles.primaryCardShell}>
+        <TouchableOpacity
+          style={styles.primaryCard}
+          onPress={() => navigation.getParent()?.navigate('MechanicJobHistory')}
+          activeOpacity={0.8}
+        >
+          <IconBadge name="checkmark-done" size={28} color={colors.accent.green} backgroundColor={colors.accent.green + '22'} style={styles.primaryCardIcon} />
+          <View style={styles.primaryCardText}>
+            <Text style={styles.primaryCardTitle}>Job history</Text>
+            <Text style={styles.primaryCardSub}>Completed and paid jobs</Text>
+          </View>
+          <View style={styles.primaryCardChevron}>
+            <Ionicons name="chevron-forward" size={20} color={colors.accent[600]} />
+          </View>
+        </TouchableOpacity>
+      </LinearGradient>
     </ScrollView>
   )
 }
@@ -212,53 +251,95 @@ function statusColor(status: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 16, paddingBottom: 32 },
-  greeting: { fontSize: 24, fontWeight: '700', color: colors.text },
-  greetingSub: { fontSize: 15, color: colors.textSecondary, marginTop: 4, marginBottom: 20 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  scroll: { paddingBottom: 32 },
+  hero: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+    shadowColor: colors.primary[700],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.surface + 'ee',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+  },
+  heroBadgeText: { ...typography.captionStrong, fontSize: 12, color: colors.primary[800] },
+  greeting: { ...typography.title, color: colors.text },
+  greetingSub: { ...typography.body, color: colors.textSecondary, marginTop: 8, lineHeight: 22 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24, paddingHorizontal: 16 },
   statBox: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderTopWidth: 3,
+    shadowColor: colors.primary[900],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  statValue: { fontSize: 20, fontWeight: '700', color: colors.text, marginTop: 6 },
-  statLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 12 },
-  bookingCard: { marginBottom: 10 },
+  statValue: { fontFamily: fonts.bold, fontSize: 20, color: colors.text, marginTop: 6 },
+  statLabel: { fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  sectionTitle: { ...typography.section, color: colors.text, marginBottom: 12, paddingHorizontal: 16 },
+  bookingCard: { marginBottom: 10, marginHorizontal: 16 },
   bookingCardInner: { flexDirection: 'row', alignItems: 'center' },
   bookingIcon: { width: 40, height: 40, borderRadius: 20 },
   bookingContent: { flex: 1, marginLeft: 14 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  vehicle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  vehicle: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.text },
   faultRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  fault: { fontSize: 14, color: colors.textSecondary },
+  fault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
   openLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  openLabel: { fontSize: 12, color: colors.primary[600], fontWeight: '600' },
+  openLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.primary[600] },
   statusChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusChipText: { fontSize: 12, fontWeight: '600', color: colors.text },
+  statusChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.text },
   costRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  cost: { fontSize: 14, fontWeight: '600', color: colors.text },
-  seeAll: { fontSize: 14, fontWeight: '600', color: colors.primary[600], marginBottom: 16 },
+  cost: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.text },
+  seeAll: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.primary[600], marginBottom: 16, marginHorizontal: 16 },
+  primaryCardShell: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 22,
+    padding: 2,
+    overflow: 'hidden',
+  },
   primaryCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 18,
-    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    borderWidth: 1,
-    borderColor: colors.neutral[100],
+    borderWidth: 0,
   },
   primaryCardIcon: { width: 48, height: 48, borderRadius: 24 },
   primaryCardText: { flex: 1 },
-  primaryCardTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
-  primaryCardSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  primaryCardTitle: { fontFamily: fonts.semiBold, fontSize: 17, color: colors.text },
+  primaryCardSub: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  primaryCardChevron: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 })

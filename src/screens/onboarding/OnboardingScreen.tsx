@@ -1,8 +1,12 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native'
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { setOnboardingComplete } from '../../utils/onboarding'
 import { colors } from '../../theme/colors'
+import { gradients } from '../../theme/gradients'
+import { typography } from '../../theme/typography'
+import { fonts } from '../../theme/fonts'
 import { Button } from '../../components/Button'
 import { MapBackground } from '../../components/MapBackground'
 import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
@@ -45,29 +49,35 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     <MapBackground variant="light" style={styles.container}>
       <View style={styles.content}>
         <AnimatedFadeIn key={index} duration={400}>
-          <View style={styles.iconWrap}>
-            <Ionicons name={slide.icon} size={72} color={colors.primary[600]} />
-          </View>
+          <LinearGradient
+            colors={[...gradients.onboardingOrb]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.iconWrap}
+          >
+            <View style={styles.iconInner}>
+              <Ionicons name={slide.icon} size={72} color={colors.primary[600]} />
+            </View>
+          </LinearGradient>
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.subtitle}>{slide.subtitle}</Text>
         </AnimatedFadeIn>
       </View>
       <View style={styles.dots}>
         {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === index && styles.dotActive]}
-          />
+          <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
         ))}
       </View>
       <View style={styles.footer}>
-        <Button
-          title={isLast ? 'Get started' : 'Next'}
-          onPress={handleNext}
-          variant="primary"
-        />
+        <Button title={isLast ? 'Get started' : 'Next'} onPress={handleNext} variant="primary" />
         {!isLast && (
-          <TouchableOpacity onPress={async () => { await setOnboardingComplete(); onComplete() }} style={styles.skip}>
+          <TouchableOpacity
+            onPress={async () => {
+              await setOnboardingComplete()
+              onComplete()
+            }}
+            style={styles.skip}
+          >
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         )}
@@ -83,33 +93,39 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 48,
   },
-  brandHeader: { alignItems: 'center', paddingTop: 24, paddingBottom: 16 },
-  brandLogo: { width: 56, height: 56 },
-  brandName: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 8 },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   iconWrap: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: colors.primary[100],
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: width * 0.38,
+    maxWidth: 160,
+    height: width * 0.38,
+    maxHeight: 160,
+    borderRadius: 999,
+    padding: 4,
     marginBottom: 32,
     shadowColor: colors.primary[600],
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  iconInner: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary[100],
   },
   title: {
+    ...typography.title,
     fontSize: 26,
-    fontWeight: '700',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
@@ -127,8 +143,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.neutral[300],
   },
-  dotActive: { backgroundColor: colors.primary[600], width: 24 },
+  dotActive: {
+    width: 28,
+    backgroundColor: colors.primary[600],
+    shadowColor: colors.primary[600],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+  },
   footer: { gap: 16 },
-  skip: { alignSelf: 'center' },
-  skipText: { fontSize: 16, color: colors.primary[600], fontWeight: '500' },
+  skip: { alignSelf: 'center', paddingVertical: 8 },
+  skipText: { ...typography.body, color: colors.primary[600], fontFamily: fonts.semiBold },
 })

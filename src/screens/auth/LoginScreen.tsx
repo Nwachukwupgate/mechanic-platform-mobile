@@ -4,6 +4,7 @@ import { authAPI, getApiErrorMessage } from '../../services/api'
 import { validateLogin } from '../../utils/validation'
 import { useAuthStore } from '../../store/authStore'
 import { colors } from '../../theme/colors'
+import { typography } from '../../theme/typography'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Card } from '../../components/Card'
@@ -105,8 +106,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 24, paddingTop: 48 },
   header: { alignItems: 'center', marginBottom: 24 },
   logo: { width: 80, height: 80, marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 16, color: colors.textSecondary, marginTop: 4 },
+  title: { ...typography.title, color: colors.text },
+  subtitle: { ...typography.body, color: colors.textSecondary, marginTop: 6 },
   roleRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
   roleBtn: { flex: 1 },
   errText: { color: colors.accent.red, fontSize: 14, marginBottom: 12 },

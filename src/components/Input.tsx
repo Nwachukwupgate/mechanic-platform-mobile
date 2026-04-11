@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { TextInput, View, Text, StyleSheet, TextInputProps, TouchableOpacity } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors } from '../theme/colors'
+import { fonts } from '../theme/fonts'
 
 type Props = TextInputProps & {
   label?: string
@@ -45,7 +46,7 @@ export function Input({ label, error, style, showPasswordToggle, secureTextEntry
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: 6 },
+  label: { fontSize: 14, fontFamily: fonts.semiBold, color: colors.text, marginBottom: 6 },
   inputRow: { position: 'relative' },
   input: {
     borderWidth: 1,
@@ -54,11 +55,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: colors.text,
     backgroundColor: colors.surface,
   },
   inputWithIcon: { paddingRight: 48 },
   eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
   inputError: { borderColor: colors.accent.red },
-  error: { fontSize: 12, color: colors.accent.red, marginTop: 4 },
+  error: { fontSize: 12, fontFamily: fonts.regular, color: colors.accent.red, marginTop: 4 },
 })

@@ -5,7 +5,11 @@ const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 module.exports = {
   expo: {
     ...base,
-    plugins: [...(base.plugins || []), '@react-native-community/datetimepicker'],
+    plugins: [
+      ...(base.plugins || []),
+      '@react-native-community/datetimepicker',
+      'expo-notifications',
+    ],
     slug: 'mechanic',
     owner: 'treyp99s-organization',
     extra: {
@@ -18,7 +22,7 @@ module.exports = {
     ios: {
       ...base.ios,
       bundleIdentifier: 'com.anonymous.mechanicplatformmobile',
-      buildNumber: '2',
+      buildNumber: '3',
       infoPlist: {
         ...base.ios?.infoPlist,
         ITSAppUsesNonExemptEncryption: false,
@@ -26,7 +30,7 @@ module.exports = {
     },
     android: {
       ...base.android,
-      package: 'com.anonymous.mechanicplatformmobile',
+      package: 'com.anonymous.mechanicplatformmobiles',
       config: {
         ...(base.android?.config || {}),
         googleMaps: {
