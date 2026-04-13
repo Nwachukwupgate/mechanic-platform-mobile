@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { Ionicons } from '@expo/vector-icons'
 import { MechanicDashboardScreen } from '../screens/mechanic/MechanicDashboardScreen'
 import { MechanicBookingsScreen } from '../screens/mechanic/MechanicBookingsScreen'
+import { MechanicJobHistoryScreen } from '../screens/mechanic/MechanicJobHistoryScreen'
 import { MechanicWalletScreen } from '../screens/mechanic/MechanicWalletScreen'
 import { MechanicProfileScreen } from '../screens/mechanic/MechanicProfileScreen'
 import { colors } from '../theme/colors'
@@ -53,6 +54,14 @@ export function MechanicTabs() {
         options={{
           title: 'Bookings',
           tabBarIcon: ({ color, size }) => <Ionicons name="briefcase" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="History"
+        component={MechanicJobHistoryScreen}
+        options={{
+          title: 'History',
+          tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} />,
         }}
       />
       <Tab.Screen

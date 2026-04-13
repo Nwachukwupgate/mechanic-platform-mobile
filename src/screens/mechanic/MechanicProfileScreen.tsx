@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View,
   Text,
@@ -66,35 +66,36 @@ export function MechanicProfileScreen() {
     brands: [] as string[],
   })
 
+  const applyFromServer = useCallback((p: any) => {
+    setProfile(p)
+    setForm({
+      phone: p?.phone ?? '',
+      experience: p?.experience ?? '',
+      bio: p?.bio ?? '',
+      workshopAddress: p?.workshopAddress ?? '',
+      workshopLat: p?.workshopLat ?? null,
+      workshopLng: p?.workshopLng ?? null,
+      address: p?.address ?? '',
+      city: p?.city ?? '',
+      state: p?.state ?? '',
+      zipCode: p?.zipCode ?? '',
+      nin: p?.nin ?? '',
+      guarantorName: p?.guarantorName ?? '',
+      guarantorPhone: p?.guarantorPhone ?? '',
+      guarantorAddress: p?.guarantorAddress ?? '',
+      vehicleTypes: Array.isArray(p?.vehicleTypes) ? p.vehicleTypes : [],
+      expertise: Array.isArray(p?.expertise) ? p.expertise : [],
+      brands: Array.isArray(p?.brands) ? p.brands : [],
+    })
+  }, [])
+
   useEffect(() => {
     mechanicsAPI
       .getProfile()
-      .then((res) => {
-        const p = res.data
-        setProfile(p)
-        setForm({
-          phone: p?.phone ?? '',
-          experience: p?.experience ?? '',
-          bio: p?.bio ?? '',
-          workshopAddress: p?.workshopAddress ?? '',
-          workshopLat: p?.workshopLat ?? null,
-          workshopLng: p?.workshopLng ?? null,
-          address: p?.address ?? '',
-          city: p?.city ?? '',
-          state: p?.state ?? '',
-          zipCode: p?.zipCode ?? '',
-          nin: p?.nin ?? '',
-          guarantorName: p?.guarantorName ?? '',
-          guarantorPhone: p?.guarantorPhone ?? '',
-          guarantorAddress: p?.guarantorAddress ?? '',
-          vehicleTypes: Array.isArray(p?.vehicleTypes) ? p.vehicleTypes : [],
-          expertise: Array.isArray(p?.expertise) ? p.expertise : [],
-          brands: Array.isArray(p?.brands) ? p.brands : [],
-        })
-      })
+      .then((res) => applyFromServer(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [applyFromServer])
 
   const pickImage = async (type: 'avatar' | 'certificate') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -116,8 +117,9 @@ export function MechanicProfileScreen() {
     if (type === 'avatar') {
       setUploadingAvatar(true)
       try {
-        const res = await mechanicsAPI.uploadAvatar(file as any)
-        if (res.data?.avatarUrl) setProfile((p: any) => (p ? { ...p, avatarUrl: res.data.avatarUrl } : p))
+        await mechanicsAPI.uploadAvatar(file as any)
+        const refreshed = await mechanicsAPI.getProfile()
+        applyFromServer(refreshed.data)
       } catch (e: any) {
         Alert.alert('Error', getApiErrorMessage(e))
       } finally {
@@ -126,8 +128,9 @@ export function MechanicProfileScreen() {
     } else {
       setUploadingCert(true)
       try {
-        const res = await mechanicsAPI.uploadCertificate(file as any)
-        if (res.data?.certificateUrl) setProfile((p: any) => (p ? { ...p, certificateUrl: res.data.certificateUrl } : p))
+        await mechanicsAPI.uploadCertificate(file as any)
+        const refreshed = await mechanicsAPI.getProfile()
+        applyFromServer(refreshed.data)
       } catch (e: any) {
         Alert.alert('Error', getApiErrorMessage(e))
       } finally {
@@ -193,13 +196,15 @@ export function MechanicProfileScreen() {
     }
     try {
       await mechanicsAPI.updateProfile(payload)
-      setProfile((p: any) => (p ? { ...p, ...payload } : p))
+      const refreshed = await mechanicsAPI.getProfile()
+      applyFromServer(refreshed.data)
     } catch (e: any) {
       if (isPropertyNotAllowedError(e, 'brands')) {
         const withoutBrands = { ...payload }; delete withoutBrands.brands
         try {
           await mechanicsAPI.updateProfile(withoutBrands)
-          setProfile((p: any) => (p ? { ...p, ...withoutBrands } : p))
+          const refreshed = await mechanicsAPI.getProfile()
+          applyFromServer(refreshed.data)
         } catch (e2: any) {
           setError(getApiErrorMessage(e2))
         }
@@ -216,7 +221,8 @@ export function MechanicProfileScreen() {
     setToggling(true)
     try {
       await mechanicsAPI.updateAvailability(next)
-      setProfile((p: any) => (p ? { ...p, availability: next } : p))
+      const refreshed = await mechanicsAPI.getProfile()
+      applyFromServer(refreshed.data)
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {

@@ -50,6 +50,14 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+/** Public app config / feature flags (same contract as web). */
+export const configAPI = {
+  getPublic: () =>
+    api.get<{ flags?: Record<string, boolean | number | string> } & Record<string, unknown>>(
+      '/config/public'
+    ),
+}
+
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -100,6 +108,11 @@ export const usersAPI = {
   setPushToken: (token: string | null) => api.put('/users/me/push-token', { token }),
   deleteAccount: (d: { reasons: string[]; otherReason?: string }) =>
     api.post('/users/me/delete-account', d),
+  blockMechanic: (mechanicId: string) =>
+    api.post('/users/me/blocked-mechanics', { mechanicId }),
+  unblockMechanic: (mechanicId: string) =>
+    api.delete(`/users/me/blocked-mechanics/${mechanicId}`),
+  listBlockedMechanics: () => api.get('/users/me/blocked-mechanics'),
 }
 
 export const mechanicsAPI = {
@@ -182,10 +195,19 @@ export const bookingsAPI = {
     lng: number,
     faultCategory: string,
     radius?: number,
-    vehicleId?: string
+    vehicleId?: string,
+    opts?: { minRating?: number; availableOnly?: boolean }
   ) =>
     api.get('/bookings/nearby-mechanics', {
-      params: { lat, lng, faultCategory, radius, vehicleId },
+      params: {
+        lat,
+        lng,
+        faultCategory,
+        radius,
+        vehicleId,
+        ...(opts?.minRating != null ? { minRating: opts.minRating } : {}),
+        ...(opts?.availableOnly != null ? { availableOnly: opts.availableOnly } : {}),
+      },
     }),
   acceptBooking: (id: string) => api.put(`/bookings/${id}/accept`),
   updateStatus: (id: string, status: string) =>
@@ -216,6 +238,25 @@ export const bookingsAPI = {
     api.post(`/bookings/${bookingId}/clarifications`, { question }),
   answerClarification: (clarificationId: string, answer: string) =>
     api.put(`/bookings/clarifications/${clarificationId}/answer`, { answer }),
+  getReceipt: (bookingId: string) => api.get(`/bookings/${bookingId}/receipt`),
+  reportBooking: (bookingId: string, reason: string, details?: string) =>
+    api.post(`/bookings/${bookingId}/report`, { reason, details }),
+  disputeBooking: (bookingId: string, reason: string) =>
+    api.put(`/bookings/${bookingId}/dispute`, { reason }),
+  markMessagesRead: (bookingId: string) =>
+    api.put(`/bookings/${bookingId}/messages/read`),
+  uploadBookingPhotos: (
+    bookingId: string,
+    files: Array<{ uri: string; name: string; type: string }>
+  ) => {
+    const form = new FormData()
+    files.forEach((f) => {
+      form.append('files', { uri: f.uri, name: f.name, type: f.type } as any)
+    })
+    return api.post(`/bookings/${bookingId}/photos`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
 
 export const ratingsAPI = {

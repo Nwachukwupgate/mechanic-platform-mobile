@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { vehiclesAPI, getApiErrorMessage } from '../../services/api'
@@ -21,7 +22,11 @@ export function VehiclesScreen({ navigation }: { navigation: any }) {
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
-  React.useEffect(() => { load() }, [load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
 
   const deleteVehicle = (id: string) => {
     Alert.alert('Remove vehicle', 'Are you sure?', [

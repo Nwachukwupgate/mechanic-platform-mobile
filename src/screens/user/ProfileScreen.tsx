@@ -33,11 +33,19 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
       .finally(() => setLoading(false))
   }, [])
 
+  const syncProfileFromServer = async () => {
+    const res = await usersAPI.getProfile()
+    setProfile(res.data)
+    setPhone(res.data?.profile?.phone || '')
+    setAddress(res.data?.profile?.address || '')
+  }
+
   const save = async () => {
     setSaving(true)
     setError('')
     try {
       await usersAPI.updateProfile({ phone, address })
+      await syncProfileFromServer()
     } catch (e: any) {
       setError(getApiErrorMessage(e))
     } finally {

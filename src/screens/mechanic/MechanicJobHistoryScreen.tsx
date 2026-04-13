@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { bookingsAPI } from '../../services/api'
@@ -24,7 +25,11 @@ export function MechanicJobHistoryScreen({ navigation }: { navigation: any }) {
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
-  React.useEffect(() => { load() }, [load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
 
   if (loading) return <LoadingOverlay />
 

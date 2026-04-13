@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import { View, Text, StyleSheet, FlatList, RefreshControl, Linking } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { walletAPI, getApiErrorMessage } from '../../services/api'
@@ -37,7 +38,11 @@ export function UserWalletScreen({ route }: { route: any }) {
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
-  React.useEffect(() => { load() }, [load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
   React.useEffect(() => {
     const ref = route.params?.paymentReference
     if (ref) {

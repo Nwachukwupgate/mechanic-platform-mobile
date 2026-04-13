@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -47,11 +48,11 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
-  React.useEffect(() => { load() }, [load])
-  React.useEffect(() => {
-    const unsub = navigation?.addListener?.('focus', load)
-    return () => { unsub?.() }
-  }, [navigation, load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
 
   const pending = myBookings.filter((b: any) => b.status === 'REQUESTED' && b.mechanicId)
   const active = myBookings.filter((b: any) => ACTIVE_STATUSES.includes(b.status))

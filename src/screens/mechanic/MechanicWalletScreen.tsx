@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import {
   View,
   Text,
@@ -29,6 +30,7 @@ type BankAccount = {
 }
 
 export function MechanicWalletScreen() {
+  const initialLoadDone = useRef(false)
   const [summary, setSummary] = useState<{
     balance: { balanceNaira: number; balanceMinor: number }
     owing: { owingNaira: number }
@@ -57,10 +59,22 @@ export function MechanicWalletScreen() {
     ])
   }
 
-  useEffect(() => {
-    setLoading(true)
-    loadData().finally(() => setLoading(false))
+  const runLoad = useCallback(async (withSpinner: boolean) => {
+    if (withSpinner) setLoading(true)
+    try {
+      await loadData()
+    } finally {
+      if (withSpinner) setLoading(false)
+    }
   }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      const first = !initialLoadDone.current
+      initialLoadDone.current = true
+      void runLoad(first)
+    }, [runLoad])
+  )
 
   const onRefresh = () => {
     setRefreshing(true)

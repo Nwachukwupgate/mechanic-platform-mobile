@@ -5,6 +5,7 @@ import { BookingDetailScreen } from '../screens/user/BookingDetailScreen'
 import { VehicleFormScreen } from '../screens/user/VehicleFormScreen'
 import { JobHistoryScreen } from '../screens/user/JobHistoryScreen'
 import { UserWalletScreen } from '../screens/user/UserWalletScreen'
+import { BookingReceiptScreen } from '../screens/user/BookingReceiptScreen'
 import { colors } from '../theme/colors'
 
 const Stack = createNativeStackNavigator()
@@ -17,6 +18,7 @@ export function UserStack() {
       <Stack.Screen name="VehicleForm" component={VehicleFormScreen} options={({ route }: any) => ({ title: route.params?.vehicleId ? 'Edit vehicle' : 'Add vehicle' })} />
       <Stack.Screen name="JobHistory" component={JobHistoryScreen} options={{ title: 'Job history' }} />
       <Stack.Screen name="UserWallet" component={UserWalletScreen} options={{ title: 'Wallet' }} />
+      <Stack.Screen name="BookingReceipt" component={BookingReceiptScreen} options={{ title: 'Receipt' }} />
     </Stack.Navigator>
   )
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import {
   View,
   Text,
@@ -8,16 +9,19 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
-  ActivityIndicator,
+  Image,
+  Modal,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import {
   bookingsAPI,
   ratingsAPI,
   walletAPI,
   getApiErrorMessage,
+  configAPI,
+  usersAPI,
 } from '../../services/api'
-import { useAuthStore } from '../../store/authStore'
 import { connectSocket, onQuoteEvents, onNewMessage } from '../../services/socket'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
@@ -26,6 +30,15 @@ import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { BookingChat } from '../../components/BookingChat'
 
 const PAYMENT_STATUSES = ['ACCEPTED', 'IN_PROGRESS', 'DONE']
+const MAX_BOOKING_PHOTOS = 3
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+const REPORT_REASONS = [
+  { value: 'HARASSMENT', label: 'Harassment or abuse' },
+  { value: 'SAFETY', label: 'Safety concern' },
+  { value: 'SPAM', label: 'Spam or misleading' },
+  { value: 'OTHER', label: 'Other' },
+] as const
 
 export function BookingDetailScreen({ route, navigation }: { route: any; navigation: any }) {
   const { id } = route.params
@@ -45,7 +58,30 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [markingDirect, setMarkingDirect] = useState(false)
   const [answeringClarificationId, setAnsweringClarificationId] = useState<string | null>(null)
   const [clarificationAnswer, setClarificationAnswer] = useState('')
-  const currentUserId = useAuthStore((s) => s.user?.id) || ''
+  const [publicFlags, setPublicFlags] = useState<Record<string, boolean | number | string> | null>(
+    null
+  )
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [disputeOpen, setDisputeOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
+  const [disputeReason, setDisputeReason] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false)
+  const [blockSubmitting, setBlockSubmitting] = useState(false)
+
+  useEffect(() => {
+    configAPI
+      .getPublic()
+      .then((r) => {
+        const d = r.data as Record<string, unknown> & {
+          flags?: Record<string, boolean | number | string>
+        }
+        setPublicFlags(d?.flags ?? (d as Record<string, boolean | number | string>))
+      })
+      .catch(() => setPublicFlags({}))
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -59,7 +95,11 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     finally { setLoading(false) }
   }, [id])
 
-  useEffect(() => { load() }, [load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
 
   useEffect(() => {
     connectSocket()
@@ -78,6 +118,11 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   useEffect(() => {
     if (booking) setDescriptionDraft(booking.description ?? '')
   }, [booking?.description])
+
+  useEffect(() => {
+    if (!id || !booking?.mechanicId || booking.status === 'REQUESTED') return
+    bookingsAPI.markMessagesRead(id).catch(() => {})
+  }, [id, booking?.mechanicId, booking?.status])
 
   const submitRating = async () => {
     if (!rating || !booking?.mechanic) return
@@ -182,6 +227,115 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     }
   }
 
+  const pickAndUploadPhotos = async () => {
+    const b = booking
+    if (!b) return
+    const photoUrls: string[] = Array.isArray(b.photoUrls) ? b.photoUrls : []
+    const room = MAX_BOOKING_PHOTOS - photoUrls.length
+    if (room <= 0) {
+      Alert.alert('Limit reached', `You can add up to ${MAX_BOOKING_PHOTOS} photos`)
+      return
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to add images.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: room,
+      quality: 0.85,
+    })
+    if (result.canceled) return
+    const assets = result.assets || []
+    for (const a of assets) {
+      if (a.fileSize != null && a.fileSize > MAX_PHOTO_BYTES) {
+        Alert.alert('File too large', 'Each photo must be under 5MB')
+        return
+      }
+    }
+    const files = assets.slice(0, room).map((a) => ({
+      uri: a.uri,
+      name: a.fileName || 'photo.jpg',
+      type: a.mimeType || 'image/jpeg',
+    }))
+    setPhotoUploading(true)
+    try {
+      await bookingsAPI.uploadBookingPhotos(id, files)
+      load()
+    } catch (e: any) {
+      Alert.alert('Upload failed', getApiErrorMessage(e, 'Check your connection and try again'))
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  const submitReport = async () => {
+    if (!reportReason.trim()) {
+      Alert.alert('Reason required', 'Please choose a reason for the report.')
+      return
+    }
+    setReportSubmitting(true)
+    try {
+      await bookingsAPI.reportBooking(id, reportReason.trim(), reportDetails.trim() || undefined)
+      setReportOpen(false)
+      setReportReason('')
+      setReportDetails('')
+      Alert.alert('Thank you', 'Your report has been submitted.')
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e, 'Could not submit report'))
+    } finally {
+      setReportSubmitting(false)
+    }
+  }
+
+  const submitDispute = async () => {
+    if (!disputeReason.trim()) {
+      Alert.alert('Details needed', 'Please describe what went wrong.')
+      return
+    }
+    setDisputeSubmitting(true)
+    try {
+      await bookingsAPI.disputeBooking(id, disputeReason.trim())
+      setDisputeOpen(false)
+      setDisputeReason('')
+      load()
+      Alert.alert('Recorded', 'We have logged your dispute.')
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e, 'Could not submit dispute'))
+    } finally {
+      setDisputeSubmitting(false)
+    }
+  }
+
+  const blockMechanic = () => {
+    const mechId = booking?.mechanic?.id
+    if (!mechId) return
+    Alert.alert(
+      'Block this mechanic?',
+      'They will not appear in your searches.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            setBlockSubmitting(true)
+            try {
+              await usersAPI.blockMechanic(mechId)
+              Alert.alert('Done', 'Mechanic blocked.')
+            } catch (e: any) {
+              Alert.alert('Error', getApiErrorMessage(e, 'Could not block'))
+            } finally {
+              setBlockSubmitting(false)
+            }
+          },
+        },
+      ]
+    )
+  }
+
   if (loading || !booking) return <LoadingOverlay />
 
   const messages = booking.messages || []
@@ -195,6 +349,15 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const hasLocation =
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
+  const paymentsEnabled = publicFlags?.paymentsEnabled !== false
+  const photoUrls: string[] = Array.isArray(booking.photoUrls) ? booking.photoUrls : []
+  const showDisputeBtn = ['ACCEPTED', 'IN_PROGRESS', 'DONE', 'PAID', 'DELIVERED'].includes(
+    booking.status
+  )
+  const showReceipt =
+    Boolean(booking.paidAt) ||
+    booking.status === 'PAID' ||
+    booking.status === 'DELIVERED'
 
   return (
     <View style={styles.container}>
@@ -215,6 +378,15 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               <Text style={styles.mech}>
                 {booking.mechanic.companyName} · {booking.mechanic.ownerFullName}
               </Text>
+            )}
+            {showReceipt && (
+              <TouchableOpacity
+                style={styles.receiptLink}
+                onPress={() => navigation.navigate('BookingReceipt', { id: booking.id })}
+              >
+                <Ionicons name="receipt-outline" size={18} color={colors.primary[600]} />
+                <Text style={styles.receiptLinkText}>View payment summary / receipt</Text>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -252,6 +424,37 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   <Text style={styles.editLink}>Edit description</Text>
                 </TouchableOpacity>
               ) : null}
+            </>
+          )}
+
+          {photoUrls.length > 0 && (
+            <>
+              <Text style={styles.sectionLabel}>Photos</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
+                {photoUrls.map((url: string) => (
+                  <TouchableOpacity key={url} onPress={() => Linking.openURL(url)}>
+                    <Image source={{ uri: url }} style={styles.photoThumb} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {booking.status === 'REQUESTED' && (
+            <>
+              <Text style={styles.sectionLabel}>
+                Add photos (optional, up to {MAX_BOOKING_PHOTOS})
+              </Text>
+              <TouchableOpacity
+                style={[styles.addPhotoBtn, photoUrls.length >= MAX_BOOKING_PHOTOS && styles.addPhotoBtnDisabled]}
+                onPress={pickAndUploadPhotos}
+                disabled={photoUploading || photoUrls.length >= MAX_BOOKING_PHOTOS}
+              >
+                <Ionicons name="images-outline" size={20} color={colors.primary[600]} />
+                <Text style={styles.addPhotoBtnText}>
+                  {photoUploading ? 'Uploading…' : 'Add photos'}
+                </Text>
+              </TouchableOpacity>
             </>
           )}
 
@@ -338,7 +541,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           )}
 
           {/* Payment */}
-          {canPay && (
+          {canPay && paymentsEnabled && (
             <>
               <Text style={styles.sectionLabel}>Payment</Text>
               <View style={styles.paymentRow}>
@@ -357,6 +560,37 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                 />
               </View>
             </>
+          )}
+          {canPay && !paymentsEnabled && (
+            <Text style={styles.paymentsDisabledNote}>
+              Online payments are not available in your region yet.
+            </Text>
+          )}
+
+          {booking.status !== 'EXPIRED' && (
+            <View style={styles.safetyBlock}>
+              <Text style={styles.sectionLabel}>Safety & support</Text>
+              <Text style={styles.safetyHint}>
+                Report problems with this job. For payment or quality issues, open a dispute.
+              </Text>
+              <View style={styles.safetyActions}>
+                <Button title="Report" variant="outline" onPress={() => setReportOpen(true)} />
+                {showDisputeBtn ? (
+                  <Button title="Dispute" variant="outline" onPress={() => setDisputeOpen(true)} />
+                ) : null}
+                {booking.mechanic?.id ? (
+                  <Button
+                    title={blockSubmitting ? 'Blocking…' : 'Block mechanic'}
+                    variant="outline"
+                    onPress={blockMechanic}
+                    disabled={blockSubmitting}
+                  />
+                ) : null}
+              </View>
+              {booking.disputeReason ? (
+                <Text style={styles.disputeNote}>Dispute recorded: {booking.disputeReason}</Text>
+              ) : null}
+            </View>
           )}
 
           {/* Location */}
@@ -405,6 +639,61 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={() => setReportOpen(false)}>
+        <View style={styles.ratingModal}>
+          <Card style={styles.ratingCard}>
+            <Text style={styles.ratingTitle}>Report this job</Text>
+            <Text style={styles.modalLabel}>Reason</Text>
+            {REPORT_REASONS.map((r) => (
+              <TouchableOpacity
+                key={r.value}
+                style={[styles.reasonChip, reportReason === r.value && styles.reasonChipActive]}
+                onPress={() => setReportReason(r.value)}
+              >
+                <Text
+                  style={[
+                    styles.reasonChipText,
+                    reportReason === r.value && styles.reasonChipTextActive,
+                  ]}
+                >
+                  {r.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.modalLabel}>Details (optional)</Text>
+            <TextInput
+              style={styles.commentInput}
+              value={reportDetails}
+              onChangeText={setReportDetails}
+              placeholder="Anything else we should know?"
+              placeholderTextColor={colors.neutral[400]}
+              multiline
+            />
+            <Button title="Submit report" onPress={submitReport} loading={reportSubmitting} />
+            <Button title="Cancel" variant="outline" style={styles.cancelBtn} onPress={() => setReportOpen(false)} />
+          </Card>
+        </View>
+      </Modal>
+
+      <Modal visible={disputeOpen} transparent animationType="fade" onRequestClose={() => setDisputeOpen(false)}>
+        <View style={styles.ratingModal}>
+          <Card style={styles.ratingCard}>
+            <Text style={styles.ratingTitle}>Something wrong with this job?</Text>
+            <Text style={styles.modalLabel}>Describe the issue</Text>
+            <TextInput
+              style={styles.commentInput}
+              value={disputeReason}
+              onChangeText={setDisputeReason}
+              placeholder="What went wrong?"
+              placeholderTextColor={colors.neutral[400]}
+              multiline
+            />
+            <Button title="Submit dispute" onPress={submitDispute} loading={disputeSubmitting} />
+            <Button title="Cancel" variant="outline" style={styles.cancelBtn} onPress={() => setDisputeOpen(false)} />
+          </Card>
+        </View>
+      </Modal>
 
       {showRating && (
         <View style={styles.ratingModal}>
@@ -590,4 +879,73 @@ const styles = StyleSheet.create({
   stars: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   star: { padding: 4 },
   cancelBtn: { marginTop: 12 },
+  receiptLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+  },
+  receiptLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
+  photoRow: { marginBottom: 8 },
+  photoThumb: {
+    width: 96,
+    height: 96,
+    borderRadius: 12,
+    marginRight: 10,
+    backgroundColor: colors.neutral[100],
+  },
+  addPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    alignSelf: 'flex-start',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    backgroundColor: colors.surface,
+  },
+  addPhotoBtnDisabled: { opacity: 0.5 },
+  addPhotoBtnText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
+  paymentsDisabledNote: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 16,
+    lineHeight: 20,
+  },
+  safetyBlock: { marginTop: 8 },
+  safetyHint: { fontSize: 14, color: colors.textSecondary, marginBottom: 12, lineHeight: 20 },
+  safetyActions: { gap: 10, flexDirection: 'column' },
+  disputeNote: {
+    marginTop: 12,
+    fontSize: 13,
+    color: colors.accent.amber,
+    backgroundColor: colors.accent.amber + '18',
+    padding: 10,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.neutral[600],
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  reasonChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    marginBottom: 8,
+    backgroundColor: colors.neutral[50],
+  },
+  reasonChipActive: {
+    borderColor: colors.primary[600],
+    backgroundColor: colors.primary[50],
+  },
+  reasonChipText: { fontSize: 14, color: colors.text },
+  reasonChipTextActive: { fontWeight: '600', color: colors.primary[700] },
 })

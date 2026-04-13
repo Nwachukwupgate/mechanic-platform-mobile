@@ -1,4 +1,6 @@
-const GEOCODING_BASE = 'https://maps.googleapis.com/maps/api/geocode/json';
+const GEOCODING_BASE = 'https://maps.googleapis.com/maps/api/geocode/json'
+
+export type GeocodeSearchResult = { lat: number; lng: number; label: string }
 
 export type ReverseGeocodeResult = {
   street: string;
@@ -69,5 +71,33 @@ export async function reverseGeocode(
     city,
     state,
     fullAddress: fmt,
-  };
+  }
+}
+
+/** Forward geocode (address search) using the same Google API key as reverse. */
+export async function searchAddress(query: string): Promise<GeocodeSearchResult[]> {
+  const q = query.trim()
+  if (q.length < 3) return []
+  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
+  if (!apiKey) {
+    throw new Error('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is not set')
+  }
+  const url = `${GEOCODING_BASE}?address=${encodeURIComponent(q)}&key=${apiKey}`
+  const res = await fetch(url)
+  const data = await res.json()
+  if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+    throw new Error(data.error_message || `Geocoding failed: ${data.status}`)
+  }
+  const results = data.results || []
+  return results
+    .map((r: { geometry?: { location?: { lat: number; lng: number } }; formatted_address?: string }) => {
+      const loc = r.geometry?.location
+      if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return null
+      return {
+        lat: loc.lat,
+        lng: loc.lng,
+        label: r.formatted_address || `${loc.lat}, ${loc.lng}`,
+      }
+    })
+    .filter(Boolean) as GeocodeSearchResult[]
 }

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { bookingsAPI } from '../../services/api'
@@ -37,11 +38,11 @@ export function MechanicBookingsScreen({ navigation }: { navigation: any }) {
     finally { setLoading(false); setRefreshing(false) }
   }, [])
 
-  React.useEffect(() => { load() }, [load])
-  React.useEffect(() => {
-    const unsub = navigation.addListener('focus', load)
-    return unsub
-  }, [navigation, load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
 
   const filtered = filter === 'ALL'
     ? list

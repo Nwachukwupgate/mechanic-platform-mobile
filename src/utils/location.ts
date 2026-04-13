@@ -62,10 +62,11 @@ export async function getCurrentPosition(): Promise<LocationState> {
  * Call getLocation() (e.g. from "Use my location") to request permission and fetch coords.
  */
 export function useCurrentLocation(): {
-  locationState: LocationState;
-  locationLoading: boolean;
-  getLocation: () => Promise<void>;
-  clearError: () => void;
+  locationState: LocationState
+  locationLoading: boolean
+  getLocation: () => Promise<void>
+  setManualLocation: (lat: number, lng: number) => void
+  clearError: () => void
 } {
   const [locationState, setLocationState] = useState<LocationState>(initialState);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -79,13 +80,24 @@ export function useCurrentLocation(): {
   }, []);
 
   const clearError = useCallback(() => {
-    setLocationState((prev) => ({ ...prev, error: null, permissionDenied: false }));
-  }, []);
+    setLocationState((prev) => ({ ...prev, error: null, permissionDenied: false }))
+  }, [])
+
+  const setManualLocation = useCallback((lat: number, lng: number) => {
+    setLocationState({
+      lat,
+      lng,
+      loading: false,
+      error: null,
+      permissionDenied: false,
+    })
+  }, [])
 
   return {
     locationState,
     locationLoading,
     getLocation,
+    setManualLocation,
     clearError,
-  };
+  }
 }

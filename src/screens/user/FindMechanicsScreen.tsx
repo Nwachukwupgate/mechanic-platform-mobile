@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import {
   View,
   Text,
@@ -9,16 +10,23 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
+  Switch,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { vehiclesAPI, faultsAPI, bookingsAPI, ratingsAPI, getApiErrorMessage } from '../../services/api'
-import { reverseGeocode, type ReverseGeocodeResult } from '../../services/geocoding'
+import { reverseGeocode, searchAddress, type ReverseGeocodeResult, type GeocodeSearchResult } from '../../services/geocoding'
 import { useCurrentLocation } from '../../utils/location'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { MechanicsMap, type MechanicMarker } from '../../components/MechanicsMap'
+
+const MAX_JOB_PHOTOS = 3
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+type LocalJobPhoto = { uri: string; name: string; type: string }
 
 type MechanicResult = {
   mechanic?: {
@@ -39,6 +47,7 @@ type MechanicResult = {
 }
 
 export function FindMechanicsScreen({ navigation }: { navigation: any }) {
+  const catalogLoadedOnce = useRef(false)
   const [vehicles, setVehicles] = useState<any[]>([])
   const [faults, setFaults] = useState<any[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState('')
@@ -60,20 +69,43 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
     locationState,
     locationLoading,
     getLocation,
+    setManualLocation,
     clearError,
   } = useCurrentLocation()
+  const [minRating, setMinRating] = useState<number | null>(null)
+  const [availableOnly, setAvailableOnly] = useState(false)
+  const [jobPhotos, setJobPhotos] = useState<LocalJobPhoto[]>([])
+  const [addressQuery, setAddressQuery] = useState('')
+  const [addressSuggestions, setAddressSuggestions] = useState<GeocodeSearchResult[]>([])
+  const [addressLookupLoading, setAddressLookupLoading] = useState(false)
 
-  useEffect(() => {
-    Promise.all([vehiclesAPI.getAll(), faultsAPI.getAll()])
-      .then(([v, f]) => {
-        setVehicles(v.data || [])
-        setFaults(f.data || [])
-        if (v.data?.length) setSelectedVehicle(v.data[0].id)
-        if (f.data?.length) setSelectedFault(f.data[0].id)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+  const loadVehicleAndFaults = useCallback(async () => {
+    const showSpinner = !catalogLoadedOnce.current
+    if (showSpinner) setLoading(true)
+    try {
+      const [v, f] = await Promise.all([vehiclesAPI.getAll(), faultsAPI.getAll()])
+      const vList = v.data || []
+      const fList = f.data || []
+      setVehicles(vList)
+      setFaults(fList)
+      setSelectedVehicle((prev) =>
+        vList.some((x: any) => x.id === prev) ? prev : vList[0]?.id ?? ''
+      )
+      setSelectedFault((prev) =>
+        fList.some((x: any) => x.id === prev) ? prev : fList[0]?.id ?? ''
+      )
+      catalogLoadedOnce.current = true
+    } catch (_) {}
+    finally {
+      if (showSpinner) setLoading(false)
+    }
   }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadVehicleAndFaults()
+    }, [loadVehicleAndFaults])
+  )
 
   useEffect(() => {
     if (locationState.lat == null || locationState.lng == null) {
@@ -115,6 +147,95 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
     })
   }, [mechanicIds])
 
+  const lookupAddress = async () => {
+    const q = addressQuery.trim()
+    if (q.length < 3) {
+      Alert.alert('Address', 'Enter at least 3 characters (e.g. city or street).')
+      return
+    }
+    setAddressLookupLoading(true)
+    setAddressSuggestions([])
+    try {
+      const results = await searchAddress(q)
+      if (results.length === 0) {
+        Alert.alert('No results', 'Try a nearby city or landmark.')
+        return
+      }
+      setAddressSuggestions(results)
+      if (results.length === 1) {
+        const r = results[0]
+        setManualLocation(r.lat, r.lng)
+        setAddressPreview(r.label)
+        setAddressSuggestions([])
+      }
+    } catch (e: any) {
+      Alert.alert('Lookup failed', getApiErrorMessage(e, 'Check your connection and API key.'))
+    } finally {
+      setAddressLookupLoading(false)
+    }
+  }
+
+  const selectAddressSuggestion = (r: GeocodeSearchResult) => {
+    setAddressSuggestions([])
+    setAddressQuery(r.label)
+    setManualLocation(r.lat, r.lng)
+    setAddressPreview(r.label)
+  }
+
+  const pickJobPhotos = async () => {
+    const room = MAX_JOB_PHOTOS - jobPhotos.length
+    if (room <= 0) {
+      Alert.alert('Limit', `You can add up to ${MAX_JOB_PHOTOS} photos`)
+      return
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to attach images.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: room,
+      quality: 0.85,
+    })
+    if (result.canceled) return
+    const next: LocalJobPhoto[] = []
+    for (const a of result.assets || []) {
+      const type = a.mimeType || 'image/jpeg'
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(type)) {
+        Alert.alert('Invalid type', 'Use JPEG, PNG, or WebP images.')
+        return
+      }
+      if (a.fileSize != null && a.fileSize > MAX_PHOTO_BYTES) {
+        Alert.alert('Too large', 'Each photo must be under 5MB')
+        return
+      }
+      next.push({
+        uri: a.uri,
+        name: a.fileName || 'photo.jpg',
+        type,
+      })
+    }
+    setJobPhotos((prev) => [...prev, ...next].slice(0, MAX_JOB_PHOTOS))
+  }
+
+  const removeJobPhotoAt = (index: number) => {
+    setJobPhotos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const uploadJobPhotosForBooking = async (bookingId: string) => {
+    if (jobPhotos.length === 0) return
+    try {
+      await bookingsAPI.uploadBookingPhotos(bookingId, jobPhotos.slice(0, MAX_JOB_PHOTOS))
+    } catch (e: any) {
+      Alert.alert(
+        'Photos',
+        getApiErrorMessage(e, 'Booking created but photos failed — add them from the booking page.')
+      )
+    }
+  }
+
   const search = async () => {
     if (!selectedVehicle || !selectedFault) {
       Alert.alert('Required', 'Select vehicle and issue')
@@ -132,9 +253,19 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
         locationState.lng,
         fault?.category || 'MECHANICAL',
         10,
-        selectedVehicle
+        selectedVehicle,
+        {
+          ...(minRating != null && minRating > 0 ? { minRating } : {}),
+          ...(availableOnly ? { availableOnly: true } : {}),
+        }
       )
-      setMechanics(res.data || [])
+      const list = Array.isArray(res.data) ? [...res.data] : []
+      list.sort((a: any, b: any) => {
+        const da = typeof a.distanceKm === 'number' ? a.distanceKm : Infinity
+        const db = typeof b.distanceKm === 'number' ? b.distanceKm : Infinity
+        return da - db
+      })
+      setMechanics(list)
       setHasSearched(true)
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
@@ -155,7 +286,10 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
         locationLng: locationState.lng,
         description: description.trim() || undefined,
       })
-      navigation.getParent()?.navigate('BookingDetail', { id: res.data.id })
+      const bookingId = res.data.id as string
+      await uploadJobPhotosForBooking(bookingId)
+      setJobPhotos([])
+      navigation.getParent()?.navigate('BookingDetail', { id: bookingId })
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {
@@ -181,7 +315,10 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
         locationLng: locationState.lng,
         description: description.trim() || undefined,
       })
-      navigation.getParent()?.navigate('BookingDetail', { id: res.data.id })
+      const bookingId = res.data.id as string
+      await uploadJobPhotosForBooking(bookingId)
+      setJobPhotos([])
+      navigation.getParent()?.navigate('BookingDetail', { id: bookingId })
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {
@@ -244,6 +381,82 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
           {!locationState.error && locationState.lat == null && !locationLoading && (
             <Text style={styles.hint}>Set your location to search for nearby mechanics.</Text>
           )}
+
+          <Text style={styles.subSectionLabel}>Or search an address / area</Text>
+          <View style={styles.addressSearchRow}>
+            <TextInput
+              style={styles.addressSearchInput}
+              value={addressQuery}
+              onChangeText={setAddressQuery}
+              placeholder="e.g. Ikeja Lagos, Port Harcourt"
+              placeholderTextColor={colors.neutral[400]}
+              onSubmitEditing={() => void lookupAddress()}
+            />
+            <TouchableOpacity
+              style={[styles.lookupBtn, addressLookupLoading && styles.lookupBtnDisabled]}
+              onPress={() => void lookupAddress()}
+              disabled={addressLookupLoading}
+            >
+              <Text style={styles.lookupBtnText}>{addressLookupLoading ? '…' : 'Look up'}</Text>
+            </TouchableOpacity>
+          </View>
+          {addressSuggestions.length > 0 && (
+            <View style={styles.suggestionsBox}>
+              {addressSuggestions.map((r, i) => (
+                <TouchableOpacity
+                  key={`${r.lat}-${r.lng}-${i}`}
+                  style={styles.suggestionRow}
+                  onPress={() => selectAddressSuggestion(r)}
+                >
+                  <Text style={styles.suggestionText} numberOfLines={2}>{r.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <Text style={styles.sectionLabel}>Filters</Text>
+          <Text style={styles.filterHint}>Minimum average rating (optional)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
+            {[
+              { label: 'Any', value: null as number | null },
+              { label: '3+', value: 3 },
+              { label: '4+', value: 4 },
+              { label: '4.5+', value: 4.5 },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={String(opt.value)}
+                onPress={() => setMinRating(opt.value)}
+                style={[styles.chip, minRating === opt.value && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, minRating === opt.value && styles.chipTextActive]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Available mechanics only</Text>
+            <Switch value={availableOnly} onValueChange={setAvailableOnly} />
+          </View>
+
+          <Text style={styles.sectionLabel}>Photos of the issue (optional)</Text>
+          <Text style={styles.filterHint}>Up to {MAX_JOB_PHOTOS} images (JPEG, PNG, WebP, max 5MB each)</Text>
+          <View style={styles.jobPhotoRow}>
+            {jobPhotos.map((p, idx) => (
+              <View key={`${p.uri}-${idx}`} style={styles.jobPhotoWrap}>
+                <Image source={{ uri: p.uri }} style={styles.jobPhotoThumb} />
+                <TouchableOpacity style={styles.jobPhotoRemove} onPress={() => removeJobPhotoAt(idx)}>
+                  <Ionicons name="close-circle" size={22} color={colors.accent.red} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          {jobPhotos.length < MAX_JOB_PHOTOS ? (
+            <TouchableOpacity style={styles.addJobPhotoBtn} onPress={() => void pickJobPhotos()}>
+              <Ionicons name="images-outline" size={20} color={colors.primary[600]} />
+              <Text style={styles.addJobPhotoText}>Add photos</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <Text style={styles.sectionLabel}>Vehicle</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
@@ -436,6 +649,70 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionLabelFirst: { marginTop: 0 },
+  subSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.neutral[500],
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  addressSearchRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 4 },
+  addressSearchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+  },
+  lookupBtn: {
+    backgroundColor: colors.primary[600],
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  lookupBtnDisabled: { opacity: 0.6 },
+  lookupBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  suggestionsBox: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  suggestionRow: { paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.neutral[200] },
+  suggestionText: { fontSize: 14, color: colors.text },
+  filterHint: { fontSize: 13, color: colors.textSecondary, marginBottom: 8 },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  switchLabel: { fontSize: 15, color: colors.text, flex: 1, marginRight: 12 },
+  jobPhotoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  jobPhotoWrap: { position: 'relative' },
+  jobPhotoThumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.neutral[100] },
+  jobPhotoRemove: { position: 'absolute', top: -6, right: -6 },
+  addJobPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+  },
+  addJobPhotoText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
   locationBtn: { marginTop: 6 },
   hint: { fontSize: 14, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
   addressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },

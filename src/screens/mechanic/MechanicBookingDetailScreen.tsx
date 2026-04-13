@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import {
   View,
   Text,
@@ -58,7 +59,11 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     finally { setLoading(false) }
   }, [id, currentUserId])
 
-  useEffect(() => { load() }, [load])
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load])
+  )
   useEffect(() => {
     connectSocket()
     const unsubQuote = onQuoteEvents((data) => { if (data.bookingId === id) load() })
