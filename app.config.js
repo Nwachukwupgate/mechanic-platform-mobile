@@ -22,7 +22,7 @@ module.exports = {
     ios: {
       ...base.ios,
       bundleIdentifier: 'com.anonymous.mechanicplatformmobile',
-      buildNumber: '5',
+      buildNumber: '8',
       infoPlist: {
         ...base.ios?.infoPlist,
         ITSAppUsesNonExemptEncryption: false,

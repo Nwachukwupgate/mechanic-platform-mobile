@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   View,
   Text,
@@ -11,6 +12,8 @@ import {
   Linking,
   Image,
   Modal,
+  AppState,
+  AppStateStatus,
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
@@ -22,12 +25,13 @@ import {
   configAPI,
   usersAPI,
 } from '../../services/api'
-import { connectSocket, onQuoteEvents, onNewMessage } from '../../services/socket'
+import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } from '../../services/socket'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { BookingChat } from '../../components/BookingChat'
+import { CollapsibleProfileSection } from '../../components/CollapsibleProfileSection'
 
 const PAYMENT_STATUSES = ['ACCEPTED', 'IN_PROGRESS', 'DONE']
 const MAX_BOOKING_PHOTOS = 3
@@ -42,6 +46,9 @@ const REPORT_REASONS = [
 
 export function BookingDetailScreen({ route, navigation }: { route: any; navigation: any }) {
   const { id } = route.params
+  const insets = useSafeAreaInsets()
+  const pendingPaystackRef = useRef<string | null>(null)
+  const verifyingPaystackRef = useRef(false)
   const [booking, setBooking] = useState<any>(null)
   const [quotes, setQuotes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,6 +78,22 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [disputeSubmitting, setDisputeSubmitting] = useState(false)
   const [blockSubmitting, setBlockSubmitting] = useState(false)
 
+  const [jobDetailsExpanded, setJobDetailsExpanded] = useState(true)
+  const [quotesExpanded, setQuotesExpanded] = useState(true)
+  const [qaExpanded, setQaExpanded] = useState(true)
+  const [locationExpanded, setLocationExpanded] = useState(false)
+  const [safetyExpanded, setSafetyExpanded] = useState(false)
+  const [chatExpanded, setChatExpanded] = useState(true)
+
+  useEffect(() => {
+    setJobDetailsExpanded(true)
+    setQuotesExpanded(true)
+    setQaExpanded(true)
+    setLocationExpanded(false)
+    setSafetyExpanded(false)
+    setChatExpanded(true)
+  }, [id])
+
   useEffect(() => {
     configAPI
       .getPublic()
@@ -95,12 +118,6 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     finally { setLoading(false) }
   }, [id])
 
-  useFocusEffect(
-    useCallback(() => {
-      load()
-    }, [load])
-  )
-
   useEffect(() => {
     connectSocket()
     const unsubQuote = onQuoteEvents((data) => {
@@ -109,11 +126,47 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     const unsubMsg = onNewMessage((data) => {
       if (data.bookingId === id) load()
     })
+    const unsubPaid = onBookingStatusChanged((data) => {
+      if (data.bookingId === id) load()
+    })
     return () => {
       unsubQuote()
       unsubMsg()
+      unsubPaid()
     }
   }, [id, load])
+
+  const tryVerifyPaystack = useCallback(async () => {
+    const ref = pendingPaystackRef.current
+    if (!ref || verifyingPaystackRef.current) return
+    verifyingPaystackRef.current = true
+    try {
+      const r = await walletAPI.verifyPayment(ref)
+      if (r.data?.success) {
+        pendingPaystackRef.current = null
+        await load()
+        Alert.alert('Payment successful', 'Your booking is marked as paid.')
+      }
+    } catch {
+      // Still pending, cancelled, or network error — keep pending ref for retry on next focus
+    } finally {
+      verifyingPaystackRef.current = false
+    }
+  }, [load])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') void tryVerifyPaystack()
+    })
+    return () => sub.remove()
+  }, [tryVerifyPaystack])
+
+  useFocusEffect(
+    useCallback(() => {
+      load()
+      void tryVerifyPaystack()
+    }, [load, tryVerifyPaystack])
+  )
 
   useEffect(() => {
     if (booking) setDescriptionDraft(booking.description ?? '')
@@ -185,6 +238,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     try {
       const res = await walletAPI.initializePayment(id)
       const url = res.data?.authorizationUrl
+      const ref = res.data?.reference
+      if (url && ref) pendingPaystackRef.current = ref
       if (url) await Linking.openURL(url)
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
@@ -336,6 +391,27 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     )
   }
 
+  const primaryBar = useMemo(() => {
+    if (!booking) return { kind: 'none' as const }
+    const pending = quotes.filter((q: any) => q.status === 'PENDING')
+    const payOk = publicFlags?.paymentsEnabled !== false
+    const canPayNow =
+      PAYMENT_STATUSES.includes(booking.status) &&
+      !booking.paidAt &&
+      (booking.estimatedCost ?? 0) > 0
+    if (canPayNow && payOk) return { kind: 'pay' as const }
+    if (booking.status === 'DONE' && !showRating) return { kind: 'rate' as const }
+    if (booking.status === 'REQUESTED' && pending.length === 1) {
+      const q = pending[0]
+      return {
+        kind: 'quote' as const,
+        quoteId: q.id,
+        price: Number(q.proposedPrice),
+      }
+    }
+    return { kind: 'none' as const }
+  }, [booking, quotes, showRating, publicFlags])
+
   if (loading || !booking) return <LoadingOverlay />
 
   const messages = booking.messages || []
@@ -359,9 +435,16 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     booking.status === 'PAID' ||
     booking.status === 'DELIVERED'
 
+  const stickyPad =
+    primaryBar.kind === 'none'
+      ? 24
+      : primaryBar.kind === 'pay'
+        ? 24 + insets.bottom + 148
+        : 24 + insets.bottom + 84
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: stickyPad }]}>
         <Card style={styles.mainCard}>
           <View style={styles.heroBlock}>
             <Text style={styles.vehicle}>
@@ -390,177 +473,181 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             )}
           </View>
 
-          {/* Job details / description */}
-          <Text style={styles.sectionLabel}>Job details</Text>
-          {booking.status === 'REQUESTED' && editingDescription ? (
-            <>
-              <TextInput
-                style={styles.descriptionInput}
-                value={descriptionDraft}
-                onChangeText={setDescriptionDraft}
-                placeholder="Describe the issue for mechanics..."
-                placeholderTextColor={colors.neutral[400]}
-                multiline
-              />
-              <View style={styles.row}>
-                <Button title="Save" onPress={saveDescription} loading={savingDescription} />
-                <Button
-                  title="Cancel"
-                  variant="outline"
-                  onPress={() => {
-                    setEditingDescription(false)
-                    setDescriptionDraft(booking.description ?? '')
-                  }}
+          <CollapsibleProfileSection
+            title="Job details"
+            icon="document-text-outline"
+            expanded={jobDetailsExpanded}
+            onToggle={() => setJobDetailsExpanded((v) => !v)}
+          >
+            {booking.status === 'REQUESTED' && editingDescription ? (
+              <>
+                <TextInput
+                  style={styles.descriptionInput}
+                  value={descriptionDraft}
+                  onChangeText={setDescriptionDraft}
+                  placeholder="Describe the issue for mechanics..."
+                  placeholderTextColor={colors.neutral[400]}
+                  multiline
                 />
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.descriptionText}>
-                {booking.description || 'No description added.'}
-              </Text>
-              {booking.status === 'REQUESTED' ? (
-                <TouchableOpacity onPress={() => setEditingDescription(true)}>
-                  <Text style={styles.editLink}>Edit description</Text>
-                </TouchableOpacity>
-              ) : null}
-            </>
-          )}
-
-          {photoUrls.length > 0 && (
-            <>
-              <Text style={styles.sectionLabel}>Photos</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
-                {photoUrls.map((url: string) => (
-                  <TouchableOpacity key={url} onPress={() => Linking.openURL(url)}>
-                    <Image source={{ uri: url }} style={styles.photoThumb} />
+                <View style={styles.row}>
+                  <Button title="Save" onPress={saveDescription} loading={savingDescription} />
+                  <Button
+                    title="Cancel"
+                    variant="outline"
+                    onPress={() => {
+                      setEditingDescription(false)
+                      setDescriptionDraft(booking.description ?? '')
+                    }}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.descriptionText}>
+                  {booking.description || 'No description added.'}
+                </Text>
+                {booking.status === 'REQUESTED' ? (
+                  <TouchableOpacity onPress={() => setEditingDescription(true)}>
+                    <Text style={styles.editLink}>Edit description</Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>
-          )}
-
-          {booking.status === 'REQUESTED' && (
-            <>
-              <Text style={styles.sectionLabel}>
-                Add photos (optional, up to {MAX_BOOKING_PHOTOS})
-              </Text>
-              <TouchableOpacity
-                style={[styles.addPhotoBtn, photoUrls.length >= MAX_BOOKING_PHOTOS && styles.addPhotoBtnDisabled]}
-                onPress={pickAndUploadPhotos}
-                disabled={photoUploading || photoUrls.length >= MAX_BOOKING_PHOTOS}
-              >
-                <Ionicons name="images-outline" size={20} color={colors.primary[600]} />
-                <Text style={styles.addPhotoBtnText}>
-                  {photoUploading ? 'Uploading…' : 'Add photos'}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {booking.status === 'REQUESTED' &&
-            booking.mechanicId &&
-            pendingQuotes.length === 0 && (
-              <Card style={styles.waitingCard}>
-                <Text style={styles.waitingTitle}>
-                  Waiting for {booking.mechanic?.companyName ?? 'the mechanic'} to send a quote
-                </Text>
-                <Text style={styles.waitingText}>
-                  You can chat once you accept their price.
-                </Text>
-              </Card>
+                ) : null}
+              </>
             )}
 
-          {/* Quotes while request is open (job board or direct to one mechanic) */}
-          {booking.status === 'REQUESTED' && pendingQuotes.length > 0 && (
-            <>
-              <Text style={styles.sectionLabel}>Quotes from mechanics</Text>
-              {pendingQuotes.map((q: any) => (
-                <View key={q.id} style={styles.quoteCard}>
-                  <Text style={styles.quoteMech}>{q.mechanic?.companyName ?? 'Mechanic'}</Text>
-                  <Text style={styles.quotePrice}>₦{Number(q.proposedPrice).toLocaleString()}</Text>
-                  {q.message ? (
-                    <Text style={styles.quoteMessage}>{q.message}</Text>
-                  ) : null}
-                  <View style={styles.quoteActions}>
-                    <Button
-                      title="Accept"
-                      onPress={() => acceptQuote(q.id)}
-                      loading={acceptingQuoteId === q.id}
-                      style={styles.quoteBtn}
-                    />
-                    <Button
-                      title="Reject"
-                      variant="outline"
-                      onPress={() => rejectQuote(q.id)}
-                      loading={rejectingQuoteId === q.id}
-                      style={styles.quoteBtn}
-                    />
-                  </View>
-                </View>
-              ))}
-            </>
+            {photoUrls.length > 0 && (
+              <>
+                <Text style={[styles.sectionLabel, styles.sectionLabelInCollapse]}>Photos</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
+                  {photoUrls.map((url: string) => (
+                    <TouchableOpacity key={url} onPress={() => Linking.openURL(url)}>
+                      <Image source={{ uri: url }} style={styles.photoThumb} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {booking.status === 'REQUESTED' && (
+              <>
+                <Text style={[styles.sectionLabel, styles.sectionLabelInCollapse]}>
+                  Add photos (optional, up to {MAX_BOOKING_PHOTOS})
+                </Text>
+                <TouchableOpacity
+                  style={[styles.addPhotoBtn, photoUrls.length >= MAX_BOOKING_PHOTOS && styles.addPhotoBtnDisabled]}
+                  onPress={pickAndUploadPhotos}
+                  disabled={photoUploading || photoUrls.length >= MAX_BOOKING_PHOTOS}
+                >
+                  <Ionicons name="images-outline" size={20} color={colors.primary[600]} />
+                  <Text style={styles.addPhotoBtnText}>
+                    {photoUploading ? 'Uploading…' : 'Add photos'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </CollapsibleProfileSection>
+
+          {booking.status === 'REQUESTED' && (
+            <CollapsibleProfileSection
+              title="Quotes & pricing"
+              icon="pricetags-outline"
+              expanded={quotesExpanded}
+              onToggle={() => setQuotesExpanded((v) => !v)}
+              badge={pendingQuotes.length > 0 ? String(pendingQuotes.length) : undefined}
+            >
+              {!booking.mechanicId && pendingQuotes.length === 0 && (
+                <Text style={styles.quotesHint}>
+                  Quotes from interested mechanics will appear here.
+                </Text>
+              )}
+              {booking.mechanicId && pendingQuotes.length === 0 && (
+                <Card style={styles.waitingCard}>
+                  <Text style={styles.waitingTitle}>
+                    Waiting for {booking.mechanic?.companyName ?? 'the mechanic'} to send a quote
+                  </Text>
+                  <Text style={styles.waitingText}>
+                    You can chat once you accept their price.
+                  </Text>
+                </Card>
+              )}
+              {pendingQuotes.length > 0 && (
+                <>
+                  <Text style={styles.quotesHint}>Tap Accept on the quote you want.</Text>
+                  {pendingQuotes.map((q: any) => (
+                    <View key={q.id} style={styles.quoteCard}>
+                      <Text style={styles.quoteMech}>{q.mechanic?.companyName ?? 'Mechanic'}</Text>
+                      <Text style={styles.quotePrice}>₦{Number(q.proposedPrice).toLocaleString()}</Text>
+                      {q.message ? (
+                        <Text style={styles.quoteMessage}>{q.message}</Text>
+                      ) : null}
+                      {primaryBar.kind === 'quote' && primaryBar.quoteId === q.id ? (
+                        <Text style={styles.stickyHint}>You can also use the bar below.</Text>
+                      ) : null}
+                      <View style={styles.quoteActions}>
+                        <Button
+                          title="Accept"
+                          onPress={() => acceptQuote(q.id)}
+                          loading={acceptingQuoteId === q.id}
+                          style={styles.quoteBtn}
+                        />
+                        <Button
+                          title="Reject"
+                          variant="outline"
+                          onPress={() => rejectQuote(q.id)}
+                          loading={rejectingQuoteId === q.id}
+                          style={styles.quoteBtn}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+            </CollapsibleProfileSection>
           )}
 
-          {/* Clarifications */}
           {clarifications.length > 0 && (
-            <>
-              <Text style={styles.sectionLabel}>Q&A</Text>
+            <CollapsibleProfileSection
+              title="Q&A"
+              icon="help-circle-outline"
+              expanded={qaExpanded}
+              onToggle={() => setQaExpanded((v) => !v)}
+              badge={
+                clarifications.filter((c: any) => !c.answer).length > 0 ? '!' : undefined
+              }
+            >
               {clarifications.map((c: any) => (
                 <View key={c.id} style={styles.clarificationCard}>
                   <View style={styles.clarificationCardInner}>
-                  <Text style={styles.clarificationQ}>{c.question}</Text>
-                  {c.answer ? (
-                    <Text style={styles.clarificationA}>{c.answer}</Text>
-                  ) : answeringClarificationId === c.id ? (
-                    <View style={styles.answerRow}>
-                      <TextInput
-                        style={styles.answerInput}
-                        value={clarificationAnswer}
-                        onChangeText={setClarificationAnswer}
-                        placeholder="Your answer..."
-                        placeholderTextColor={colors.neutral[400]}
-                      />
+                    <Text style={styles.clarificationQ}>{c.question}</Text>
+                    {c.answer ? (
+                      <Text style={styles.clarificationA}>{c.answer}</Text>
+                    ) : answeringClarificationId === c.id ? (
+                      <View style={styles.answerRow}>
+                        <TextInput
+                          style={styles.answerInput}
+                          value={clarificationAnswer}
+                          onChangeText={setClarificationAnswer}
+                          placeholder="Your answer..."
+                          placeholderTextColor={colors.neutral[400]}
+                        />
+                        <Button
+                          title="Send"
+                          onPress={() => submitClarificationAnswer(c.id)}
+                          loading={answeringClarificationId === c.id}
+                        />
+                      </View>
+                    ) : (
                       <Button
-                        title="Send"
-                        onPress={() => submitClarificationAnswer(c.id)}
-                        loading={answeringClarificationId === c.id}
+                        title="Answer"
+                        variant="outline"
+                        onPress={() => setAnsweringClarificationId(c.id)}
                       />
-                    </View>
-                  ) : (
-                    <Button
-                      title="Answer"
-                      variant="outline"
-                      onPress={() => setAnsweringClarificationId(c.id)}
-                    />
-                  )}
+                    )}
                   </View>
                 </View>
               ))}
-            </>
+            </CollapsibleProfileSection>
           )}
 
-          {/* Payment */}
-          {canPay && paymentsEnabled && (
-            <>
-              <Text style={styles.sectionLabel}>Payment</Text>
-              <View style={styles.paymentRow}>
-                <Button
-                  title="Pay with Paystack"
-                  onPress={payWithPaystack}
-                  loading={paying}
-                  style={styles.paymentBtn}
-                />
-                <Button
-                  title="I paid mechanic directly"
-                  variant="outline"
-                  onPress={markDirectPaid}
-                  loading={markingDirect}
-                  style={styles.paymentBtn}
-                />
-              </View>
-            </>
-          )}
           {canPay && !paymentsEnabled && (
             <Text style={styles.paymentsDisabledNote}>
               Online payments are not available in your region yet.
@@ -568,8 +655,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           )}
 
           {booking.status !== 'EXPIRED' && (
-            <View style={styles.safetyBlock}>
-              <Text style={styles.sectionLabel}>Safety & support</Text>
+            <CollapsibleProfileSection
+              title="Safety & support"
+              icon="shield-checkmark-outline"
+              expanded={safetyExpanded}
+              onToggle={() => setSafetyExpanded((v) => !v)}
+            >
               <Text style={styles.safetyHint}>
                 Report problems with this job. For payment or quality issues, open a dispute.
               </Text>
@@ -590,13 +681,16 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               {booking.disputeReason ? (
                 <Text style={styles.disputeNote}>Dispute recorded: {booking.disputeReason}</Text>
               ) : null}
-            </View>
+            </CollapsibleProfileSection>
           )}
 
-          {/* Location */}
           {hasLocation && (
-            <>
-              <Text style={styles.sectionLabel}>Job location</Text>
+            <CollapsibleProfileSection
+              title="Job location"
+              icon="location-outline"
+              expanded={locationExpanded}
+              onToggle={() => setLocationExpanded((v) => !v)}
+            >
               <View style={styles.locationBlock}>
                 <Text style={styles.locationAddress} numberOfLines={4}>
                   {formatJobAddress(booking)}
@@ -606,21 +700,16 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   <Text style={styles.mapLinkText}>Open in Maps</Text>
                 </TouchableOpacity>
               </View>
-            </>
-          )}
-
-          {booking.status === 'DONE' && !showRating && (
-            <Button
-              title="Rate mechanic"
-              onPress={() => setShowRating(true)}
-              variant="secondary"
-              style={styles.rateBtn}
-            />
+            </CollapsibleProfileSection>
           )}
         </Card>
 
-        <View style={styles.chatSection}>
-          <Text style={styles.sectionTitle}>Chat</Text>
+        <CollapsibleProfileSection
+          title="Chat"
+          icon="chatbubbles-outline"
+          expanded={chatExpanded}
+          onToggle={() => setChatExpanded((v) => !v)}
+        >
           {chatReleased ? (
             <BookingChat
               bookingId={id}
@@ -637,8 +726,46 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               </Text>
             </Card>
           )}
-        </View>
+        </CollapsibleProfileSection>
       </ScrollView>
+
+      {primaryBar.kind !== 'none' && (
+        <View style={[styles.stickyActionBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {primaryBar.kind === 'pay' && paymentsEnabled && (
+            <View style={styles.stickyInner}>
+              <Button
+                title={paying ? 'Opening…' : 'Pay with Paystack'}
+                onPress={payWithPaystack}
+                loading={paying}
+                style={styles.stickyPrimaryBtn}
+              />
+              <Button
+                title="I paid the mechanic directly"
+                variant="outline"
+                onPress={markDirectPaid}
+                loading={markingDirect}
+                style={styles.stickySecondaryBtn}
+              />
+            </View>
+          )}
+          {primaryBar.kind === 'rate' && (
+            <Button
+              title="Rate mechanic"
+              onPress={() => setShowRating(true)}
+              variant="secondary"
+              style={styles.stickyPrimaryBtn}
+            />
+          )}
+          {primaryBar.kind === 'quote' && (
+            <Button
+              title={`Accept quote · ₦${primaryBar.price.toLocaleString()}`}
+              onPress={() => acceptQuote(primaryBar.quoteId)}
+              loading={acceptingQuoteId === primaryBar.quoteId}
+              style={styles.stickyPrimaryBtn}
+            />
+          )}
+        </View>
+      )}
 
       <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={() => setReportOpen(false)}>
         <View style={styles.ratingModal}>
@@ -781,6 +908,22 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 10,
   },
+  sectionLabelInCollapse: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  quotesHint: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  stickyHint: {
+    fontSize: 13,
+    color: colors.neutral[500],
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   descriptionText: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
   descriptionInput: {
     borderWidth: 1,
@@ -828,14 +971,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
-  paymentRow: { flexDirection: 'row', gap: 12 },
-  paymentBtn: { flex: 1 },
   locationBlock: { marginTop: 4 },
   locationAddress: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
   mapLink: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   mapLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
-  rateBtn: { marginTop: 20 },
-  chatSection: { marginTop: 28 },
+  stickyActionBar: {
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+    backgroundColor: colors.surface,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  stickyInner: { gap: 10 },
+  stickyPrimaryBtn: { width: '100%' as const },
+  stickySecondaryBtn: { width: '100%' as const },
   waitingCard: {
     marginTop: 16,
     padding: 14,
@@ -848,12 +1002,6 @@ const styles = StyleSheet.create({
   chatPlaceholder: { padding: 16 },
   chatPlaceholderTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
   chatPlaceholderText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
   commentInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
@@ -914,7 +1062,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     lineHeight: 20,
   },
-  safetyBlock: { marginTop: 8 },
   safetyHint: { fontSize: 14, color: colors.textSecondary, marginBottom: 12, lineHeight: 20 },
   safetyActions: { gap: 10, flexDirection: 'column' },
   disputeNote: {

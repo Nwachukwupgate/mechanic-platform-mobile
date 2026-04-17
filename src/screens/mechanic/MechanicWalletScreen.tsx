@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import {
   View,
   Text,
@@ -29,13 +29,24 @@ type BankAccount = {
   isDefault: boolean
 }
 
+type WalletSummaryBalance = {
+  netMinor: number
+  netNaira: number
+  availableToWithdrawMinor: number
+  availableToWithdrawNaira: number
+  unpaidPlatformFeeMinor: number
+  unpaidPlatformFeeNaira: number
+  currency: string
+}
+
 export function MechanicWalletScreen() {
+  const navigation = useNavigation()
   const initialLoadDone = useRef(false)
   const [summary, setSummary] = useState<{
-    balance: { balanceNaira: number; balanceMinor: number }
-    owing: { owingNaira: number }
+    balance: WalletSummaryBalance
     recentTransactions: any[]
   } | null>(null)
+  const [transactions, setTransactions] = useState<any[]>([])
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [banks, setBanks] = useState<Array<{ code: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
@@ -50,10 +61,18 @@ export function MechanicWalletScreen() {
   const [updatingBank, setUpdatingBank] = useState(false)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
+  const [feeAmount, setFeeAmount] = useState('')
+  const [feeBookingId, setFeeBookingId] = useState('')
+  const [feeNote, setFeeNote] = useState('')
+  const [recordingFee, setRecordingFee] = useState(false)
 
   const loadData = () => {
     return Promise.all([
       walletAPI.getSummary().then((r) => setSummary(r.data)).catch(() => setSummary(null)),
+      walletAPI
+        .getTransactions({ limit: 100 })
+        .then((r) => setTransactions(r.data.items ?? []))
+        .catch(() => setTransactions([])),
       mechanicsAPI.listBankAccounts().then((r) => setBankAccounts(r.data)).catch(() => setBankAccounts([])),
       walletAPI.getBanks().then((r) => setBanks(r.data)).catch(() => setBanks([])),
     ])
@@ -163,8 +182,10 @@ export function MechanicWalletScreen() {
     ])
   }
 
-  const balance = summary?.balance ?? { balanceNaira: 0, balanceMinor: 0 }
-  const owing = summary?.owing ?? { owingNaira: 0 }
+  const bal = summary?.balance
+  const netNaira = bal?.netNaira ?? 0
+  const availableMinor = bal?.availableToWithdrawMinor ?? 0
+  const unpaidFeeNaira = bal?.unpaidPlatformFeeNaira ?? 0
 
   const handleWithdraw = async () => {
     const naira = parseFloat(withdrawAmount)
@@ -173,8 +194,8 @@ export function MechanicWalletScreen() {
       return
     }
     const amountMinor = Math.round(naira * 100)
-    if (amountMinor > (balance.balanceMinor ?? 0)) {
-      Alert.alert('Error', 'Amount exceeds your balance')
+    if (amountMinor > availableMinor) {
+      Alert.alert('Error', 'Amount exceeds withdrawable balance (platform-paid earnings)')
       return
     }
     setWithdrawing(true)
@@ -190,6 +211,60 @@ export function MechanicWalletScreen() {
     }
   }
 
+  const handleRecordFee = async () => {
+    const naira = parseFloat(feeAmount)
+    if (!Number.isFinite(naira) || naira < 1) {
+      Alert.alert('Error', 'Enter a valid fee amount (min ₦1)')
+      return
+    }
+    const amountMinor = Math.round(naira * 100)
+    setRecordingFee(true)
+    try {
+      await walletAPI.recordFeePayment({
+        amountMinor,
+        bookingId: feeBookingId.trim() || undefined,
+        note: feeNote.trim() || undefined,
+      })
+      setFeeAmount('')
+      setFeeBookingId('')
+      setFeeNote('')
+      loadData()
+      Alert.alert('Success', 'Platform fee payment recorded.')
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e, 'Could not record payment'))
+    } finally {
+      setRecordingFee(false)
+    }
+  }
+
+  const openTxDetail = (id: string) => {
+    const parent = navigation.getParent?.() as { navigate: (name: string, params: object) => void } | undefined
+    parent?.navigate('MechanicTransactionDetail', { transactionId: id })
+  }
+
+  const txTitle = (type: string) => {
+    switch (type) {
+      case 'USER_PAYMENT':
+        return 'Customer payment (platform)'
+      case 'PLATFORM_PAYOUT':
+        return 'Withdrawal'
+      case 'MECHANIC_FEE':
+        return 'Platform fee'
+      case 'REFUND':
+        return 'Refund'
+      default:
+        return type.replace(/_/g, ' ')
+    }
+  }
+
+  const txSignedAmount = (t: { type: string; amountNaira: number }) => {
+    const n = t.amountNaira ?? 0
+    if (t.type === 'PLATFORM_PAYOUT' || t.type === 'MECHANIC_FEE') {
+      return { text: `-${'\u20A6'}${n.toLocaleString()}`, outgoing: true }
+    }
+    return { text: `+${'\u20A6'}${n.toLocaleString()}`, outgoing: false }
+  }
+
   if (loading) return <LoadingOverlay />
 
   return (
@@ -200,32 +275,34 @@ export function MechanicWalletScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>Wallet</Text>
-      <Text style={styles.subtitle}>Balance, payouts, and withdrawal account</Text>
+      <Text style={styles.subtitle}>Net balance, withdrawals, fees, and history</Text>
 
-      <View style={styles.cardsRow}>
-        <Card style={styles.halfCard}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconWrap, { backgroundColor: colors.accent.green + '20' }]}>
-              <Ionicons name="wallet" size={24} color={colors.accent.green} />
-            </View>
-            <Text style={styles.cardLabel}>Platform owes you</Text>
+      <Card style={styles.balanceCard}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.primary[100] }]}>
+            <Ionicons name="wallet" size={24} color={colors.primary[600]} />
           </View>
-          <Text style={[styles.amount, { color: colors.accent.green }]}>
-            ₦{(balance.balanceNaira ?? 0).toLocaleString()}
-          </Text>
-        </Card>
-        <Card style={styles.halfCard}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconWrap, { backgroundColor: colors.accent.amber + '20' }]}>
-              <Ionicons name="alert-circle" size={24} color={colors.accent.amber} />
-            </View>
-            <Text style={styles.cardLabel}>You owe platform</Text>
-          </View>
-          <Text style={[styles.amount, { color: colors.accent.amber }]}>
-            ₦{(owing.owingNaira ?? 0).toLocaleString()}
-          </Text>
-        </Card>
-      </View>
+          <Text style={styles.cardLabel}>Your balance</Text>
+        </View>
+        <Text
+          style={[
+            styles.heroAmount,
+            { color: netNaira >= 0 ? colors.accent.green : colors.accent.red },
+          ]}
+        >
+          {netNaira >= 0 ? '' : '-'}₦{Math.abs(netNaira).toLocaleString()}
+        </Text>
+        <Text style={styles.balanceMeta}>
+          Withdrawable (80% from platform-paid jobs): ₦{(bal?.availableToWithdrawNaira ?? 0).toLocaleString()}
+        </Text>
+        <Text style={styles.balanceMeta}>
+          Unpaid platform fees (20% on direct jobs): ₦{unpaidFeeNaira.toLocaleString()}
+        </Text>
+        <Text style={styles.balanceHint}>
+          Net balance is withdrawable earnings minus fees you still owe. It can be negative if fees exceed accrued
+          payouts.
+        </Text>
+      </Card>
 
       {/* Withdraw to bank */}
       <Card style={styles.section}>
@@ -235,7 +312,9 @@ export function MechanicWalletScreen() {
           </View>
           <View style={styles.sectionTitleWrap}>
             <Text style={styles.sectionTitle}>Withdraw to bank</Text>
-            <Text style={styles.sectionSubtitle}>Send balance to your default account</Text>
+            <Text style={styles.sectionSubtitle}>
+              From platform-paid jobs only (your 80% share after our 20% fee)
+            </Text>
           </View>
         </View>
         <Input
@@ -249,10 +328,99 @@ export function MechanicWalletScreen() {
           title={withdrawing ? 'Sending…' : 'Withdraw'}
           onPress={handleWithdraw}
           loading={withdrawing}
-          disabled={(balance.balanceMinor ?? 0) < 100}
+          disabled={availableMinor < 100}
         />
-        {(balance.balanceMinor ?? 0) < 100 && (
-          <Text style={styles.emptyText}>Add a default bank account below. Min withdrawal ₦1.</Text>
+        {availableMinor < 100 && (
+          <Text style={styles.emptyText}>No withdrawable balance yet, or amount below minimum.</Text>
+        )}
+      </Card>
+
+      {/* Record platform fee (direct jobs) */}
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.accent.amber + '25' }]}>
+            <Ionicons name="cash-outline" size={24} color={colors.accent.amber} />
+          </View>
+          <View style={styles.sectionTitleWrap}>
+            <Text style={styles.sectionTitle}>Record platform fee</Text>
+            <Text style={styles.sectionSubtitle}>
+              Customer paid you directly? Log the 20% platform fee here to keep your ledger accurate.
+            </Text>
+          </View>
+        </View>
+        <Input
+          label="Amount paid to platform (₦)"
+          value={feeAmount}
+          onChangeText={setFeeAmount}
+          placeholder="0"
+          keyboardType="decimal-pad"
+        />
+        <Input
+          label="Booking ID (optional)"
+          value={feeBookingId}
+          onChangeText={setFeeBookingId}
+          placeholder="Link to a direct-paid job"
+          autoCapitalize="none"
+        />
+        <Input
+          label="Note (optional)"
+          value={feeNote}
+          onChangeText={setFeeNote}
+          placeholder="e.g. Transfer reference"
+        />
+        <Button
+          title={recordingFee ? 'Saving…' : 'Record fee payment'}
+          onPress={handleRecordFee}
+          loading={recordingFee}
+        />
+      </Card>
+
+      {/* Transaction history */}
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.primary[100] }]}>
+            <Ionicons name="list-outline" size={24} color={colors.primary[600]} />
+          </View>
+          <View style={styles.sectionTitleWrap}>
+            <Text style={styles.sectionTitle}>Transaction history</Text>
+            <Text style={styles.sectionSubtitle}>Tap a row for full detail and fee split</Text>
+          </View>
+        </View>
+        {transactions.length === 0 ? (
+          <Text style={styles.emptyText}>No transactions yet.</Text>
+        ) : (
+          transactions.map((t) => {
+            const signed = txSignedAmount(t)
+            return (
+              <TouchableOpacity
+                key={t.id}
+                style={styles.txRow}
+                onPress={() => openTxDetail(t.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.txLeft}>
+                  <Text style={styles.txTitle}>{txTitle(t.type)}</Text>
+                  <Text style={styles.txDate}>
+                    {new Date(t.createdAt).toLocaleString(undefined, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.txRight}>
+                  <Text
+                    style={[
+                      styles.txAmount,
+                      signed.outgoing ? { color: colors.accent.amber } : { color: colors.accent.green },
+                    ]}
+                  >
+                    {signed.text}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.neutral[400]} />
+                </View>
+              </TouchableOpacity>
+            )
+          })
         )}
       </Card>
 
@@ -432,12 +600,26 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 32 },
   title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 4 },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 20 },
-  cardsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  halfCard: { flex: 1 },
+  balanceCard: { marginBottom: 20 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   iconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cardLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
-  amount: { fontSize: 20, fontWeight: '700' },
+  heroAmount: { fontSize: 28, fontWeight: '800', marginBottom: 8 },
+  balanceMeta: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  balanceHint: { fontSize: 12, color: colors.neutral[500], marginTop: 10, lineHeight: 18 },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[100],
+  },
+  txLeft: { flex: 1, minWidth: 0, paddingRight: 8 },
+  txRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  txTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  txDate: { fontSize: 12, color: colors.neutral[500], marginTop: 2 },
+  txAmount: { fontSize: 15, fontWeight: '700' },
   section: { marginBottom: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   sectionTitleWrap: { flex: 1, minWidth: 120 },

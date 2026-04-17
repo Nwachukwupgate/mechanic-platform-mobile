@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { MechanicTabs } from './MechanicTabs'
 import { MechanicBookingDetailScreen } from '../screens/mechanic/MechanicBookingDetailScreen'
 import { MechanicJobHistoryScreen } from '../screens/mechanic/MechanicJobHistoryScreen'
+import { MechanicTransactionDetailScreen } from '../screens/mechanic/MechanicTransactionDetailScreen'
 import { colors } from '../theme/colors'
 
 const Stack = createNativeStackNavigator()
@@ -13,6 +14,11 @@ export function MechanicStack() {
       <Stack.Screen name="Main" component={MechanicTabs} options={{ headerShown: false }} />
       <Stack.Screen name="MechanicBookingDetail" component={MechanicBookingDetailScreen} options={{ title: 'Booking' }} />
       <Stack.Screen name="MechanicJobHistory" component={MechanicJobHistoryScreen} options={{ title: 'Job history' }} />
+      <Stack.Screen
+        name="MechanicTransactionDetail"
+        component={MechanicTransactionDetailScreen}
+        options={{ title: 'Transaction' }}
+      />
     </Stack.Navigator>
   )
 }

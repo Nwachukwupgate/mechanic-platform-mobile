@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { View, Text, StyleSheet, FlatList, RefreshControl, Linking } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { walletAPI, getApiErrorMessage } from '../../services/api'
@@ -20,6 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export function UserWalletScreen({ route }: { route: any }) {
+  const navigation = useNavigation<any>()
   const [summary, setSummary] = useState<any>(null)
   const [transactions, setTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,13 +45,35 @@ export function UserWalletScreen({ route }: { route: any }) {
     }, [load])
   )
   React.useEffect(() => {
-    const ref = route.params?.paymentReference
-    if (ref) {
-      walletAPI.verifyPayment(ref).then((r) => {
-        if (r.data?.success) load()
-      }).catch(() => {})
+    const ref =
+      route.params?.paymentReference ??
+      route.params?.reference ??
+      route.params?.trxref
+    const bookingId = route.params?.bookingId
+    if (!ref) return
+    const paystackRef = String(ref)
+    let cancelled = false
+    walletAPI
+      .verifyPayment(paystackRef)
+      .then((r) => {
+        if (cancelled || !r.data?.success) return
+        load()
+        if (bookingId) {
+          navigation.navigate('BookingDetail', { id: String(bookingId) })
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
     }
-  }, [route.params?.paymentReference])
+  }, [
+    route.params?.paymentReference,
+    route.params?.reference,
+    route.params?.trxref,
+    route.params?.bookingId,
+    navigation,
+    load,
+  ])
 
   if (loading && !summary) return <LoadingOverlay />
 

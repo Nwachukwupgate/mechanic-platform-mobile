@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/authStore'
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  'https://mechanic.internalops.pro'
+  'https://mechanic.denicksenglobal.com'
 
 export function getApiErrorMessage(
   error: unknown,
@@ -309,9 +309,26 @@ export const walletAPI = {
     }>('/wallet/owing'),
   getSummary: () =>
     api.get<{
-      balance: { balanceNaira: number; balanceMinor: number }
-      owing: { owingNaira: number }
+      balance: {
+        netMinor: number
+        netNaira: number
+        availableToWithdrawMinor: number
+        availableToWithdrawNaira: number
+        unpaidPlatformFeeMinor: number
+        unpaidPlatformFeeNaira: number
+        totalEarnedFromPlatformMinor?: number
+        totalPayoutsMinor?: number
+        totalFeeOwedMinor?: number
+        totalFeePaidMinor?: number
+        currency: string
+      }
       recentTransactions: any[]
     }>('/wallet/summary'),
+  getTransaction: (id: string) => api.get(`/wallet/transactions/${id}`),
+  recordFeePayment: (body: {
+    amountMinor: number
+    bookingId?: string
+    note?: string
+  }) => api.post('/wallet/record-fee-payment', body),
   withdraw: (amountMinor: number) => api.post('/wallet/withdraw', { amountMinor }),
 }

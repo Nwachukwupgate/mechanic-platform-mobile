@@ -5,12 +5,12 @@ let socket: Socket | null = null
 
 function getSocketBaseUrl(): string {
   const url =
-    process.env.EXPO_PUBLIC_API_URL || 'https://mechanic.internalops.pro'
+    process.env.EXPO_PUBLIC_API_URL || 'https://mechanic.denicksenglobal.com'
   try {
     const u = new URL(url)
     return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`
   } catch {
-    return 'wss://mechanic.internalops.pro'
+    return 'wss://mechanic.denicksenglobal.com'
   }
 }
 
@@ -53,6 +53,21 @@ export function onNewMessage(cb: (data: { bookingId: string; message: any }) => 
   if (!socket) return () => {}
   socket.on('new_message', cb)
   return () => { socket?.off('new_message', cb) }
+}
+
+export type BookingStatusChangedPayload = {
+  bookingId: string
+  status: string
+  userId: string
+  mechanicId: string | null
+}
+
+export function onBookingStatusChanged(cb: (data: BookingStatusChangedPayload) => void): () => void {
+  if (!socket) return () => {}
+  socket.on('booking:statusChanged', cb)
+  return () => {
+    socket?.off('booking:statusChanged', cb)
+  }
 }
 
 export function onQuoteEvents(cb: (data: { bookingId: string; event: string; quote?: any }) => void): () => void {

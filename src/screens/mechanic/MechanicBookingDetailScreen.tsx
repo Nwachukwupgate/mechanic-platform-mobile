@@ -16,7 +16,7 @@ import {
   getApiErrorMessage,
 } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
-import { connectSocket, onQuoteEvents, onNewMessage } from '../../services/socket'
+import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } from '../../services/socket'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
@@ -68,7 +68,10 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     connectSocket()
     const unsubQuote = onQuoteEvents((data) => { if (data.bookingId === id) load() })
     const unsubMsg = onNewMessage((data) => { if (data.bookingId === id) load() })
-    return () => { unsubQuote(); unsubMsg() }
+    const unsubPaid = onBookingStatusChanged((data) => {
+      if (data.bookingId === id) load()
+    })
+    return () => { unsubQuote(); unsubMsg(); unsubPaid() }
   }, [id, load])
 
   const updateStatus = async (status: string) => {
