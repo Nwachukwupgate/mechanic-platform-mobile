@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import {
   View,
@@ -10,15 +10,19 @@ import {
   FlatList,
   Alert,
   RefreshControl,
+  AppState,
+  AppStateStatus,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { walletAPI, mechanicsAPI } from '../../services/api'
 import { getApiErrorMessage } from '../../services/api'
 import { colors } from '../../theme/colors'
+import { fonts } from '../../theme/fonts'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
+import { PaystackCheckoutModal } from '../../components/PaystackCheckoutModal'
 
 type BankAccount = {
   id: string
@@ -42,6 +46,8 @@ type WalletSummaryBalance = {
 export function MechanicWalletScreen() {
   const navigation = useNavigation()
   const initialLoadDone = useRef(false)
+  const pendingFeePaystackRef = useRef<string | null>(null)
+  const verifyingFeePaystackRef = useRef(false)
   const [summary, setSummary] = useState<{
     balance: WalletSummaryBalance
     recentTransactions: any[]
@@ -61,10 +67,9 @@ export function MechanicWalletScreen() {
   const [updatingBank, setUpdatingBank] = useState(false)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
-  const [feeAmount, setFeeAmount] = useState('')
-  const [feeBookingId, setFeeBookingId] = useState('')
-  const [feeNote, setFeeNote] = useState('')
-  const [recordingFee, setRecordingFee] = useState(false)
+  const [payingPlatformFee, setPayingPlatformFee] = useState(false)
+  const [paystackFeeUrl, setPaystackFeeUrl] = useState<string | null>(null)
+  const [paystackFeeRef, setPaystackFeeRef] = useState<string | null>(null)
 
   const loadData = () => {
     return Promise.all([
@@ -87,12 +92,45 @@ export function MechanicWalletScreen() {
     }
   }, [])
 
+  const tryVerifyMechanicFeePayment = useCallback(async () => {
+    const ref = pendingFeePaystackRef.current
+    if (!ref || verifyingFeePaystackRef.current) return
+    verifyingFeePaystackRef.current = true
+    try {
+      const r = await walletAPI.verifyMechanicFeePayment(ref)
+      if (r.data?.success) {
+        pendingFeePaystackRef.current = null
+        setPaystackFeeUrl(null)
+        setPaystackFeeRef(null)
+        await loadData()
+        Alert.alert('Payment successful', 'Your platform fee payment was received.')
+      }
+    } catch {
+      // Still pending, cancelled, or network error — keep pending ref for retry on next focus
+    } finally {
+      verifyingFeePaystackRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') void tryVerifyMechanicFeePayment()
+    })
+    return () => sub.remove()
+  }, [tryVerifyMechanicFeePayment])
+
   useFocusEffect(
     useCallback(() => {
       const first = !initialLoadDone.current
       initialLoadDone.current = true
       void runLoad(first)
     }, [runLoad])
+  )
+
+  useFocusEffect(
+    useCallback(() => {
+      void tryVerifyMechanicFeePayment()
+    }, [tryVerifyMechanicFeePayment])
   )
 
   const onRefresh = () => {
@@ -185,7 +223,8 @@ export function MechanicWalletScreen() {
   const bal = summary?.balance
   const netNaira = bal?.netNaira ?? 0
   const availableMinor = bal?.availableToWithdrawMinor ?? 0
-  const unpaidFeeNaira = bal?.unpaidPlatformFeeNaira ?? 0
+  const unpaidFeeMinor = bal?.unpaidPlatformFeeMinor ?? 0
+  const unpaidFeeNairaDisplay = unpaidFeeMinor / 100
 
   const handleWithdraw = async () => {
     const naira = parseFloat(withdrawAmount)
@@ -211,29 +250,27 @@ export function MechanicWalletScreen() {
     }
   }
 
-  const handleRecordFee = async () => {
-    const naira = parseFloat(feeAmount)
-    if (!Number.isFinite(naira) || naira < 1) {
-      Alert.alert('Error', 'Enter a valid fee amount (min ₦1)')
+  const handlePayPlatformFee = async () => {
+    if (unpaidFeeMinor < 100) {
+      Alert.alert('Nothing to pay', 'You have no platform fee balance due right now.')
       return
     }
-    const amountMinor = Math.round(naira * 100)
-    setRecordingFee(true)
+    setPayingPlatformFee(true)
     try {
-      await walletAPI.recordFeePayment({
-        amountMinor,
-        bookingId: feeBookingId.trim() || undefined,
-        note: feeNote.trim() || undefined,
+      const res = await walletAPI.initializeMechanicFeePayment({
+        amountMinor: unpaidFeeMinor,
       })
-      setFeeAmount('')
-      setFeeBookingId('')
-      setFeeNote('')
-      loadData()
-      Alert.alert('Success', 'Platform fee payment recorded.')
+      const url = res.data?.authorizationUrl
+      const ref = res.data?.reference
+      if (url && ref) {
+        pendingFeePaystackRef.current = ref
+        setPaystackFeeUrl(url)
+        setPaystackFeeRef(ref)
+      }
     } catch (e: any) {
-      Alert.alert('Error', getApiErrorMessage(e, 'Could not record payment'))
+      Alert.alert('Error', getApiErrorMessage(e, 'Could not start payment'))
     } finally {
-      setRecordingFee(false)
+      setPayingPlatformFee(false)
     }
   }
 
@@ -296,7 +333,7 @@ export function MechanicWalletScreen() {
           Withdrawable (80% from platform-paid jobs): ₦{(bal?.availableToWithdrawNaira ?? 0).toLocaleString()}
         </Text>
         <Text style={styles.balanceMeta}>
-          Unpaid platform fees (20% on direct jobs): ₦{unpaidFeeNaira.toLocaleString()}
+          Unpaid platform fees (20% on direct jobs): ₦{unpaidFeeNairaDisplay.toLocaleString()}
         </Text>
         <Text style={styles.balanceHint}>
           Net balance is withdrawable earnings minus fees you still owe. It can be negative if fees exceed accrued
@@ -335,45 +372,31 @@ export function MechanicWalletScreen() {
         )}
       </Card>
 
-      {/* Record platform fee (direct jobs) */}
-      <Card style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.accent.amber + '25' }]}>
-            <Ionicons name="cash-outline" size={24} color={colors.accent.amber} />
+      {/* Pay platform fee (full owed balance only) — Paystack */}
+      {unpaidFeeMinor >= 100 ? (
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.accent.amber + '25' }]}>
+              <Ionicons name="card-outline" size={24} color={colors.accent.amber} />
+            </View>
+            <View style={styles.sectionTitleWrap}>
+              <Text style={styles.sectionTitle}>Pay platform fee</Text>
+              <Text style={styles.sectionSubtitle}>
+                Pay your full outstanding 20% on direct-paid jobs with card (Paystack). Checkout opens in the app;
+                we confirm as soon as Paystack succeeds.
+              </Text>
+            </View>
           </View>
-          <View style={styles.sectionTitleWrap}>
-            <Text style={styles.sectionTitle}>Record platform fee</Text>
-            <Text style={styles.sectionSubtitle}>
-              Customer paid you directly? Log the 20% platform fee here to keep your ledger accurate.
-            </Text>
-          </View>
-        </View>
-        <Input
-          label="Amount paid to platform (₦)"
-          value={feeAmount}
-          onChangeText={setFeeAmount}
-          placeholder="0"
-          keyboardType="decimal-pad"
-        />
-        <Input
-          label="Booking ID (optional)"
-          value={feeBookingId}
-          onChangeText={setFeeBookingId}
-          placeholder="Link to a direct-paid job"
-          autoCapitalize="none"
-        />
-        <Input
-          label="Note (optional)"
-          value={feeNote}
-          onChangeText={setFeeNote}
-          placeholder="e.g. Transfer reference"
-        />
-        <Button
-          title={recordingFee ? 'Saving…' : 'Record fee payment'}
-          onPress={handleRecordFee}
-          loading={recordingFee}
-        />
-      </Card>
+          <Text style={styles.feeOwedLine}>
+            Amount due: <Text style={styles.feeOwedAmount}>₦{unpaidFeeNairaDisplay.toLocaleString()}</Text>
+          </Text>
+          <Button
+            title={payingPlatformFee ? 'Starting…' : `Pay ₦${unpaidFeeNairaDisplay.toLocaleString()} with card`}
+            onPress={handlePayPlatformFee}
+            loading={payingPlatformFee}
+          />
+        </Card>
+      ) : null}
 
       {/* Transaction history */}
       <Card style={styles.section}>
@@ -591,6 +614,23 @@ export function MechanicWalletScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <PaystackCheckoutModal
+        visible={Boolean(paystackFeeUrl && paystackFeeRef)}
+        authorizationUrl={paystackFeeUrl}
+        expectedReference={paystackFeeRef}
+        title="Pay platform fee"
+        onRequestClose={() => {
+          setPaystackFeeUrl(null)
+          setPaystackFeeRef(null)
+        }}
+        verifyPayment={(reference) => walletAPI.verifyMechanicFeePayment(reference)}
+        onVerified={async () => {
+          pendingFeePaystackRef.current = null
+          await loadData()
+          Alert.alert('Payment successful', 'Your platform fee payment was received.')
+        }}
+      />
     </>
   )
 }
@@ -625,6 +665,8 @@ const styles = StyleSheet.create({
   sectionTitleWrap: { flex: 1, minWidth: 120 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
   sectionSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  feeOwedLine: { fontSize: 15, color: colors.textSecondary, marginBottom: 14 },
+  feeOwedAmount: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
   addBtn: { alignSelf: 'flex-start' },
   addForm: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.neutral[200], gap: 0 },
   pickerTouch: {

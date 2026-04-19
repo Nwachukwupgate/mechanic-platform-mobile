@@ -282,6 +282,19 @@ export const walletAPI = {
     }),
   markDirectPaid: (bookingId: string) =>
     api.post('/wallet/mark-direct-paid', { bookingId }),
+  /** Mechanic pays owed platform fee (e.g. 20% on direct-paid jobs) via Paystack — requires backend support. */
+  initializeMechanicFeePayment: (body: {
+    amountMinor: number
+    bookingId?: string
+    note?: string
+  }) =>
+    api.post<{
+      authorizationUrl: string
+      accessCode: string
+      reference: string
+    }>('/wallet/initialize-mechanic-fee-payment', body),
+  verifyMechanicFeePayment: (reference: string) =>
+    api.post<{ success: boolean }>('/wallet/verify-mechanic-fee-payment', { reference }),
   getTransactions: (params?: {
     type?: string
     limit?: number
@@ -325,6 +338,7 @@ export const walletAPI = {
       recentTransactions: any[]
     }>('/wallet/summary'),
   getTransaction: (id: string) => api.get(`/wallet/transactions/${id}`),
+  /** Manual fee log (e.g. bank transfer) — no in-app UI; kept for API parity / tooling. */
   recordFeePayment: (body: {
     amountMinor: number
     bookingId?: string

@@ -32,6 +32,7 @@ import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { BookingChat } from '../../components/BookingChat'
 import { CollapsibleProfileSection } from '../../components/CollapsibleProfileSection'
+import { PaystackCheckoutModal } from '../../components/PaystackCheckoutModal'
 
 const PAYMENT_STATUSES = ['ACCEPTED', 'IN_PROGRESS', 'DONE']
 const MAX_BOOKING_PHOTOS = 3
@@ -77,6 +78,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [disputeSubmitting, setDisputeSubmitting] = useState(false)
   const [blockSubmitting, setBlockSubmitting] = useState(false)
+  const [paystackCheckoutUrl, setPaystackCheckoutUrl] = useState<string | null>(null)
+  const [paystackCheckoutRef, setPaystackCheckoutRef] = useState<string | null>(null)
 
   const [jobDetailsExpanded, setJobDetailsExpanded] = useState(true)
   const [quotesExpanded, setQuotesExpanded] = useState(true)
@@ -144,6 +147,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       const r = await walletAPI.verifyPayment(ref)
       if (r.data?.success) {
         pendingPaystackRef.current = null
+        setPaystackCheckoutUrl(null)
+        setPaystackCheckoutRef(null)
         await load()
         Alert.alert('Payment successful', 'Your booking is marked as paid.')
       }
@@ -239,8 +244,11 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       const res = await walletAPI.initializePayment(id)
       const url = res.data?.authorizationUrl
       const ref = res.data?.reference
-      if (url && ref) pendingPaystackRef.current = ref
-      if (url) await Linking.openURL(url)
+      if (url && ref) {
+        pendingPaystackRef.current = ref
+        setPaystackCheckoutUrl(url)
+        setPaystackCheckoutRef(ref)
+      }
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {
@@ -734,7 +742,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           {primaryBar.kind === 'pay' && paymentsEnabled && (
             <View style={styles.stickyInner}>
               <Button
-                title={paying ? 'Opening…' : 'Pay with Paystack'}
+                title={paying ? 'Starting…' : 'Pay in app'}
                 onPress={payWithPaystack}
                 loading={paying}
                 style={styles.stickyPrimaryBtn}
@@ -858,6 +866,23 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           </Card>
         </View>
       )}
+
+      <PaystackCheckoutModal
+        visible={Boolean(paystackCheckoutUrl && paystackCheckoutRef)}
+        authorizationUrl={paystackCheckoutUrl}
+        expectedReference={paystackCheckoutRef}
+        title="Pay for booking"
+        onRequestClose={() => {
+          setPaystackCheckoutUrl(null)
+          setPaystackCheckoutRef(null)
+        }}
+        verifyPayment={(reference) => walletAPI.verifyPayment(reference)}
+        onVerified={async () => {
+          pendingPaystackRef.current = null
+          await load()
+          Alert.alert('Payment successful', 'Your booking is marked as paid.')
+        }}
+      />
     </View>
   )
 }

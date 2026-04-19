@@ -8,7 +8,11 @@ type Props = {
   icon: React.ComponentProps<typeof Ionicons>['name']
   title: string
   subtitle?: string
-  width: number
+  /**
+   * Fixed pixel width (legacy). Omit to let the tile use `flex: 1` so a row of N tiles
+   * each gets 1/N of the available width (after gap/padding).
+   */
+  width?: number
   iconColor: string
   iconBg: string
   onPress: () => void
@@ -25,7 +29,7 @@ export function DashboardActionTile({
 }: Props) {
   return (
     <TouchableOpacity
-      style={[styles.tile, { width }]}
+      style={[styles.tile, width != null ? { width } : { flex: 1, minWidth: 0 }]}
       onPress={onPress}
       activeOpacity={0.88}
       accessibilityRole="button"
@@ -49,9 +53,14 @@ export function DashboardActionTile({
   )
 }
 
-/** Two equal columns: (screenWidth - horizontalPadding*2 - gap) / 2 */
-export function useDashboardTileWidth(horizontalPadding: number, gap: number, screenWidth: number) {
-  return Math.max(136, Math.floor((screenWidth - horizontalPadding * 2 - gap) / 2))
+/** Fixed half-row width: (screenWidth - horizontalPadding*2 - gap) / columns — only if you pass `width` to tiles. */
+export function useDashboardTileWidth(
+  horizontalPadding: number,
+  gap: number,
+  screenWidth: number,
+  columns = 2,
+) {
+  return Math.max(120, Math.floor((screenWidth - horizontalPadding * 2 - gap * (columns - 1)) / columns))
 }
 
 const styles = StyleSheet.create({

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  useWindowDimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -22,7 +21,7 @@ import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
-import { DashboardActionTile, useDashboardTileWidth } from '../../components/DashboardActionTile'
+import { DashboardActionTile } from '../../components/DashboardActionTile'
 import { getGreetingLine } from '../../utils/greeting'
 
 const PAD = 16
@@ -40,9 +39,6 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
   const [myBookings, setMyBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const { width: screenW } = useWindowDimensions()
-  const tileW = useDashboardTileWidth(PAD, TILE_GAP, screenW)
-
   useEffect(() => {
     if (justLoggedIn && name) {
       clearJustLoggedIn()
@@ -89,33 +85,52 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
       <LinearGradient colors={[...gradients.heroRich]} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
         <AnimatedFadeIn>
           <View style={styles.heroBadge}>
-            <Ionicons name="briefcase" size={14} color={colors.primary[700]} />
+            <Ionicons name="briefcase" size={15} color={colors.primary[700]} />
             <Text style={styles.heroBadgeText}>Workshop dashboard</Text>
           </View>
           <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
+          <View style={styles.heroAccent} />
           <Text style={styles.greetingSub}>Quote open jobs, chat with customers, get paid.</Text>
         </AnimatedFadeIn>
       </LinearGradient>
       <View style={styles.statsRow}>
-        <AnimatedFadeIn delay={0} duration={280}>
-          <View style={[styles.statBox, { borderTopColor: colors.primary[500] }]}>
-            <IconBadge name="document-text-outline" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
-            <Text style={styles.statValue}>{openRequests.length}</Text>
-            <Text style={styles.statLabel}>Open</Text>
+        <AnimatedFadeIn delay={0} duration={280} style={styles.statCellWrap}>
+          <View style={[styles.statBox, styles.statBoxOpen, styles.statOpenCard, styles.statFill]}>
+            <IconBadge
+              name="document-text-outline"
+              size={22}
+              color={colors.primary[600]}
+              backgroundColor={colors.primary[100]}
+              style={styles.statIconOpen}
+            />
+            <Text style={styles.statValueOpen}>{openRequests.length}</Text>
+            <Text style={styles.statLabelOpen}>Open</Text>
           </View>
         </AnimatedFadeIn>
-        <AnimatedFadeIn delay={60} duration={280}>
-          <View style={[styles.statBox, { borderTopColor: colors.accent.violet }]}>
-            <IconBadge name="time" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
-            <Text style={styles.statValue}>{active.length}</Text>
-            <Text style={styles.statLabel}>Active</Text>
+        <AnimatedFadeIn delay={60} duration={280} style={styles.statCellWrap}>
+          <View style={[styles.statBox, styles.statBoxLarge, styles.statActiveCard, styles.statFill]}>
+            <IconBadge
+              name="time"
+              size={28}
+              color={colors.accent.violet}
+              backgroundColor="rgba(139, 92, 246, 0.16)"
+              style={styles.statIconLarge}
+            />
+            <Text style={styles.statValueLarge}>{active.length}</Text>
+            <Text style={styles.statLabelLarge}>Active</Text>
           </View>
         </AnimatedFadeIn>
-        <AnimatedFadeIn delay={120} duration={280}>
-          <View style={[styles.statBox, { borderTopColor: colors.accent.green }]}>
-            <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
-            <Text style={styles.statValue}>{completed.length}</Text>
-            <Text style={styles.statLabel}>Done</Text>
+        <AnimatedFadeIn delay={120} duration={280} style={styles.statCellWrap}>
+          <View style={[styles.statBox, styles.statBoxLarge, styles.statDoneCard, styles.statFill]}>
+            <IconBadge
+              name="checkmark-done"
+              size={28}
+              color={colors.accent.green}
+              backgroundColor="rgba(16, 185, 129, 0.18)"
+              style={styles.statIconLarge}
+            />
+            <Text style={styles.statValueLarge}>{completed.length}</Text>
+            <Text style={styles.statLabelLarge}>Done</Text>
           </View>
         </AnimatedFadeIn>
       </View>
@@ -123,7 +138,9 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
       {pending.length > 0 && (
         <>
           <View style={styles.sectionHeader}>
-            <Ionicons name="paper-plane-outline" size={18} color={colors.accent.violet} />
+            <View style={[styles.sectionIconWrap, { backgroundColor: 'rgba(139, 92, 246, 0.12)' }]}>
+              <Ionicons name="paper-plane-outline" size={18} color={colors.accent.violet} />
+            </View>
             <Text style={styles.sectionTitle}>Sent to you — send a quote</Text>
           </View>
           {pending.slice(0, 5).map((b: any) => (
@@ -161,7 +178,9 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
       {openRequests.length > 0 && (
         <>
           <View style={styles.sectionHeader}>
-            <Ionicons name="flash-outline" size={18} color={colors.primary[600]} />
+            <View style={[styles.sectionIconWrap, { backgroundColor: colors.primary[100] }]}>
+              <Ionicons name="flash-outline" size={18} color={colors.primary[600]} />
+            </View>
             <Text style={styles.sectionTitle}>Open requests (quote to win)</Text>
           </View>
           {openRequests.slice(0, 5).map((b: any) => (
@@ -204,7 +223,9 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
       {recent.length > 0 && (
         <>
           <View style={styles.sectionHeader}>
-            <Ionicons name="reader-outline" size={18} color={colors.textSecondary} />
+            <View style={styles.sectionIconWrap}>
+              <Ionicons name="reader-outline" size={18} color={colors.neutral[600]} />
+            </View>
             <Text style={styles.sectionTitle}>Recent bookings</Text>
           </View>
           {recent.map((b: any) => (
@@ -248,12 +269,13 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
 
       <View style={[styles.actionSection, { paddingHorizontal: PAD }]}>
         <View style={styles.actionSectionHeader}>
-          <Ionicons name="grid-outline" size={18} color={colors.primary[600]} />
+          <View style={[styles.sectionIconWrap, { backgroundColor: colors.primary[100] }]}>
+            <Ionicons name="grid-outline" size={18} color={colors.primary[600]} />
+          </View>
           <Text style={styles.actionSectionTitle}>Quick actions</Text>
         </View>
         <View style={styles.actionRow}>
           <DashboardActionTile
-            width={tileW}
             icon="briefcase"
             title="All bookings"
             subtitle="Quotes & job status"
@@ -262,7 +284,6 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             onPress={() => navigation.navigate('Bookings')}
           />
           <DashboardActionTile
-            width={tileW}
             icon="time-outline"
             title="Job history"
             subtitle="Completed & paid"
@@ -273,7 +294,6 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         </View>
         <View style={styles.actionRow}>
           <DashboardActionTile
-            width={tileW}
             icon="wallet-outline"
             title="Wallet"
             subtitle="Earnings & payouts"
@@ -282,7 +302,6 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             onPress={() => navigation.navigate('Wallet')}
           />
           <DashboardActionTile
-            width={tileW}
             icon="person-circle-outline"
             title="Profile"
             subtitle="Workshop & availability"
@@ -312,90 +331,242 @@ function statusColor(status: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: 32 },
+  scroll: { paddingBottom: 36, width: '100%' },
   hero: {
     marginHorizontal: PAD,
-    marginTop: 8,
-    marginBottom: 20,
-    padding: 20,
-    borderRadius: 24,
+    marginTop: 10,
+    marginBottom: 22,
+    padding: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: colors.primary[100],
-    shadowColor: colors.primary[700],
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
+    borderColor: 'rgba(8, 108, 64, 0.12)',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.07,
+    shadowRadius: 24,
+    elevation: 5,
   },
   heroBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 6,
-    backgroundColor: colors.surface + 'ee',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 12,
+    gap: 8,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 100,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: colors.primary[100],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  heroBadgeText: { ...typography.captionStrong, fontSize: 12, color: colors.primary[800] },
-  greeting: { ...typography.title, color: colors.text },
-  greetingSub: { ...typography.body, color: colors.textSecondary, marginTop: 8, lineHeight: 22 },
-  statsRow: { flexDirection: 'row', gap: TILE_GAP, marginBottom: 20, paddingHorizontal: PAD },
-  statBox: {
+  heroBadgeText: { ...typography.captionStrong, fontSize: 12, color: colors.primary[800], letterSpacing: 0.2 },
+  greeting: {
+    ...typography.title,
+    fontSize: 26,
+    letterSpacing: -0.6,
+    lineHeight: 32,
+    color: colors.text,
+  },
+  heroAccent: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.primary[500],
+    marginTop: 14,
+    opacity: 0.85,
+  },
+  greetingSub: {
+    ...typography.body,
+    color: colors.neutral[600],
+    marginTop: 12,
+    lineHeight: 23,
+    fontSize: 15,
+    maxWidth: '100%',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 26,
+    paddingHorizontal: PAD,
+    alignItems: 'stretch',
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  /** Row child must flex — inner stat card then fills this. */
+  statCellWrap: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+  },
+  statFill: {
+    flex: 1,
+    width: '100%',
+  },
+  statBox: {
+    minWidth: 0,
     alignItems: 'center',
-    borderTopWidth: 3,
-    shadowColor: colors.primary[900],
-    shadowOffset: { width: 0, height: 4 },
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowRadius: 14,
     elevation: 3,
   },
-  statValue: { fontFamily: fonts.bold, fontSize: 19, color: colors.text, marginTop: 6 },
-  statLabel: { fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2, textAlign: 'center' },
+  statBoxOpen: {
+    paddingVertical: 18,
+    paddingHorizontal: 6,
+    minHeight: 132,
+    borderRadius: 18,
+    borderTopWidth: 2,
+    borderTopColor: colors.primary[500],
+  },
+  statOpenCard: {
+    backgroundColor: colors.surface,
+  },
+  statBoxLarge: {
+    paddingVertical: 22,
+    paddingHorizontal: 12,
+    minHeight: 132,
+    borderRadius: 22,
+    borderTopWidth: 4,
+  },
+  statActiveCard: {
+    backgroundColor: 'rgba(139, 92, 246, 0.06)',
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderTopColor: colors.accent.violet,
+    shadowColor: colors.accent.violet,
+    shadowOpacity: 0.1,
+  },
+  statDoneCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.07)',
+    borderColor: 'rgba(16, 185, 129, 0.22)',
+    borderTopColor: colors.accent.green,
+    shadowColor: colors.accent.green,
+    shadowOpacity: 0.08,
+  },
+  statIconOpen: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  statIconLarge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+  },
+  statValueOpen: {
+    fontFamily: fonts.bold,
+    fontSize: 17,
+    color: colors.text,
+    marginTop: 6,
+    letterSpacing: -0.3,
+  },
+  statLabelOpen: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: colors.neutral[500],
+    marginTop: 3,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  statValueLarge: {
+    fontFamily: fonts.bold,
+    fontSize: 30,
+    color: colors.text,
+    marginTop: 12,
+    letterSpacing: -0.9,
+  },
+  statLabelLarge: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
+    color: colors.neutral[600],
+    marginTop: 5,
+    textAlign: 'center',
+    letterSpacing: 0.15,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+    gap: 12,
+    marginBottom: 12,
+    marginTop: 4,
     paddingHorizontal: PAD,
   },
-  sectionTitle: { ...typography.section, color: colors.text, marginBottom: 0, paddingHorizontal: 0 },
-  bookingCard: { marginBottom: TILE_GAP, marginHorizontal: PAD },
-  bookingCardInner: { flexDirection: 'row', alignItems: 'center' },
-  bookingIcon: { width: 40, height: 40, borderRadius: 20 },
-  bookingContent: { flex: 1, marginLeft: 12, minWidth: 0 },
+  sectionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.neutral[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    ...typography.section,
+    flex: 1,
+    fontSize: 17,
+    letterSpacing: -0.35,
+    color: colors.text,
+    marginBottom: 0,
+    paddingHorizontal: 0,
+  },
+  bookingCard: {
+    marginBottom: 12,
+    marginHorizontal: PAD,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  bookingCardInner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
+  bookingIcon: { width: 44, height: 44, borderRadius: 22 },
+  bookingContent: { flex: 1, marginLeft: 14, minWidth: 0 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  vehicle: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.text },
+  vehicle: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.text, letterSpacing: -0.2 },
   vehicleFlex: { flex: 1, minWidth: 0 },
   faultRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   fault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
   openLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   openLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.primary[600] },
-  statusChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, flexShrink: 0 },
-  statusChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.text },
+  statusChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, flexShrink: 0 },
+  statusChipText: { fontFamily: fonts.semiBold, fontSize: 11, color: colors.text, letterSpacing: 0.2 },
   costRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   cost: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.text },
-  seeAll: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.primary[600], marginBottom: 16, marginHorizontal: PAD },
-  actionSection: { marginTop: 4, marginBottom: 16 },
+  seeAll: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14,
+    color: colors.primary[600],
+    marginBottom: 18,
+    marginHorizontal: PAD,
+    marginTop: 4,
+  },
+  actionSection: { marginTop: 8, marginBottom: 20, alignSelf: 'stretch' },
   actionSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 14,
   },
-  actionSectionTitle: { ...typography.section, color: colors.text },
+  actionSectionTitle: {
+    ...typography.section,
+    fontSize: 17,
+    letterSpacing: -0.35,
+    color: colors.text,
+  },
   actionRow: {
     flexDirection: 'row',
     gap: TILE_GAP,
     marginBottom: TILE_GAP,
+    alignSelf: 'stretch',
   },
 })

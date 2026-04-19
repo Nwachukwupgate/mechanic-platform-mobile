@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  useWindowDimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -21,7 +20,7 @@ import { fonts } from '../../theme/fonts'
 import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
 import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
-import { DashboardActionTile, useDashboardTileWidth } from '../../components/DashboardActionTile'
+import { DashboardActionTile } from '../../components/DashboardActionTile'
 import { getGreetingLine } from '../../utils/greeting'
 
 const PAD = 16
@@ -38,9 +37,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const { width: screenW } = useWindowDimensions()
-  const tileW = useDashboardTileWidth(PAD, TILE_GAP, screenW)
-
   useEffect(() => {
     if (justLoggedIn && name) {
       clearJustLoggedIn()
@@ -87,22 +83,22 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       </LinearGradient>
 
       <View style={styles.statsRow}>
-        <AnimatedFadeIn delay={0} duration={280}>
-          <View style={[styles.statBox, { borderTopColor: colors.primary[500] }]}>
+        <AnimatedFadeIn delay={0} duration={280} style={styles.statCellWrap}>
+          <View style={[styles.statBox, styles.statFill, { borderTopColor: colors.primary[500] }]}>
             <IconBadge name="time" color={colors.primary[600]} backgroundColor={colors.primary[100]} />
             <Text style={styles.statValue}>{active}</Text>
             <Text style={styles.statLabel}>Active</Text>
           </View>
         </AnimatedFadeIn>
-        <AnimatedFadeIn delay={60} duration={280}>
-          <View style={[styles.statBox, { borderTopColor: colors.accent.violet }]}>
+        <AnimatedFadeIn delay={60} duration={280} style={styles.statCellWrap}>
+          <View style={[styles.statBox, styles.statFill, { borderTopColor: colors.accent.violet }]}>
             <IconBadge name="document-text" color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} />
             <Text style={styles.statValue}>{total}</Text>
             <Text style={styles.statLabel}>Total</Text>
           </View>
         </AnimatedFadeIn>
-        <AnimatedFadeIn delay={120} duration={280}>
-          <View style={[styles.statBox, { borderTopColor: colors.accent.green }]}>
+        <AnimatedFadeIn delay={120} duration={280} style={styles.statCellWrap}>
+          <View style={[styles.statBox, styles.statFill, { borderTopColor: colors.accent.green }]}>
             <IconBadge name="checkmark-done" color={colors.accent.green} backgroundColor={colors.accent.green + '22'} />
             <Text style={styles.statValue}>{completed}</Text>
             <Text style={styles.statLabel}>Completed</Text>
@@ -158,7 +154,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           </View>
           <View style={styles.actionRow}>
             <DashboardActionTile
-              width={tileW}
               icon="search"
               title="Find mechanics"
               subtitle="Nearby workshops & quotes"
@@ -167,7 +162,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
               onPress={() => navigation.navigate('FindMechanics')}
             />
             <DashboardActionTile
-              width={tileW}
               icon="calendar-outline"
               title="My bookings"
               subtitle="Chat, pay, track status"
@@ -178,7 +172,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           </View>
           <View style={styles.actionRow}>
             <DashboardActionTile
-              width={tileW}
               icon="checkmark-done-outline"
               title="Job history"
               subtitle="Completed jobs"
@@ -187,7 +180,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
               onPress={() => navigation.getParent()?.navigate('JobHistory')}
             />
             <DashboardActionTile
-              width={tileW}
               icon="wallet-outline"
               title="Wallet"
               subtitle="Balance & payments"
@@ -218,7 +210,7 @@ function statusColor(status: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: 32 },
+  scroll: { paddingBottom: 32, width: '100%' },
   hero: {
     marginHorizontal: PAD,
     marginTop: 8,
@@ -250,7 +242,16 @@ const styles = StyleSheet.create({
   heroBadgeText: { ...typography.captionStrong, fontSize: 12, color: colors.primary[800] },
   greeting: { ...typography.title, color: colors.text },
   greetingSub: { ...typography.body, color: colors.textSecondary, marginTop: 8, lineHeight: 22 },
-  statsRow: { flexDirection: 'row', gap: TILE_GAP, marginBottom: 20, paddingHorizontal: PAD },
+  statsRow: {
+    flexDirection: 'row',
+    gap: TILE_GAP,
+    marginBottom: 20,
+    paddingHorizontal: PAD,
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  statCellWrap: { flex: 1, minWidth: 0 },
+  statFill: { flex: 1, width: '100%' },
   statBox: {
     flex: 1,
     minWidth: 0,
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
   recentFault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
   statusChip: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 8 },
   statusChipText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.text },
-  actionSection: { marginBottom: 8 },
+  actionSection: { marginBottom: 8, alignSelf: 'stretch' },
   actionSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,6 +293,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: TILE_GAP,
     marginBottom: TILE_GAP,
-    justifyContent: 'flex-start',
+    alignSelf: 'stretch',
   },
 })
