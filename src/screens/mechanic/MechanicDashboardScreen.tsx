@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
+import { setStatusBarStyle } from 'expo-status-bar'
 import {
   View,
   Text,
@@ -8,29 +9,66 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '../../store/authStore'
-import { bookingsAPI } from '../../services/api'
+import { bookingsAPI, notificationsAPI } from '../../services/api'
 import { colors } from '../../theme/colors'
-import { gradients } from '../../theme/gradients'
 import { typography } from '../../theme/typography'
 import { fonts } from '../../theme/fonts'
 import { Card } from '../../components/Card'
 import { IconBadge } from '../../components/IconBadge'
-import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
-import { DashboardActionTile } from '../../components/DashboardActionTile'
+import { HeroDecorativeRings } from '../../components/HeroDecorativeRings'
 import { getGreetingLine } from '../../utils/greeting'
+import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { layout } from '../../theme/layout'
+import { Button } from '../../components/Button'
 
-const PAD = 16
-const TILE_GAP = 10
+const PAD = layout.screenPaddingHorizontal
+const LIST_PREVIEW = 3
 
 const ACTIVE_STATUSES = ['REQUESTED', 'ACCEPTED', 'IN_PROGRESS']
 const COMPLETED_STATUSES = ['DONE', 'PAID', 'DELIVERED']
 
+function SectionHeading({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  showSeeAll,
+  onSeeAll,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name']
+  iconBg: string
+  iconColor: string
+  title: string
+  showSeeAll?: boolean
+  onSeeAll?: () => void
+}) {
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <View style={styles.sectionHeaderLeft}>
+        <View style={[styles.sectionIconWrap, { backgroundColor: iconBg }]}>
+          <Ionicons name={icon} size={18} color={iconColor} />
+        </View>
+        <Text style={styles.sectionTitle} numberOfLines={2}>
+          {title}
+        </Text>
+      </View>
+      {showSeeAll && onSeeAll ? (
+        <TouchableOpacity onPress={onSeeAll} hitSlop={8}>
+          <Text style={styles.seeAll}>See all</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
+}
+
 export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
+  const insets = useSafeAreaInsets()
   const user = useAuthStore((s) => s.user)
   const justLoggedIn = useAuthStore((s) => s.justLoggedIn)
   const clearJustLoggedIn = useAuthStore((s) => s.clearJustLoggedIn)
@@ -39,6 +77,7 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
   const [myBookings, setMyBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [unreadActivity, setUnreadActivity] = useState(0)
   useEffect(() => {
     if (justLoggedIn && name) {
       clearJustLoggedIn()
@@ -48,15 +87,23 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
 
   const load = useCallback(async () => {
     try {
-      const [openRes, allRes] = await Promise.all([
+      const [openRes, allRes, unreadRes] = await Promise.all([
         bookingsAPI.getOpenRequests().catch(() => ({ data: [] })),
         bookingsAPI.getAll(),
+        notificationsAPI.unreadCount().catch(() => ({ data: { count: 0 } })),
       ])
       setOpenRequests(Array.isArray(openRes.data) ? openRes.data : [])
       const all = allRes.data || []
       setMyBookings(all)
-    } catch (_) {}
-    finally { setLoading(false); setRefreshing(false) }
+      const uc = (unreadRes as { data?: { count?: number } }).data?.count
+      setUnreadActivity(typeof uc === 'number' ? uc : 0)
+    } catch (_) {
+      setUnreadActivity(0)
+    }
+    finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [])
 
   useFocusEffect(
@@ -65,14 +112,35 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
     }, [load])
   )
 
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('light')
+      return () => setStatusBarStyle('dark')
+    }, [])
+  )
+
   const pending = myBookings.filter((b: any) => b.status === 'REQUESTED' && b.mechanicId)
   const active = myBookings.filter((b: any) => ACTIVE_STATUSES.includes(b.status))
   const completed = myBookings.filter((b: any) => COMPLETED_STATUSES.includes(b.status))
-  const recent = [...myBookings]
-    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 5)
+  const sortedBookings = [...myBookings].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  )
+  const recentPreview = sortedBookings.slice(0, LIST_PREVIEW)
 
-  if (loading) return <LoadingOverlay />
+  const pendingPreview = pending.slice(0, LIST_PREVIEW)
+  const openPreview = openRequests.slice(0, LIST_PREVIEW)
+
+  if (loading) {
+    return (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="large" color={colors.brand.primary} />
+      </View>
+    )
+  }
+
+  const heroPadTop = Math.max(insets.top, 10) + 8
+  const chipLabel =
+    (user?.companyName || '').trim().slice(0, 18) || (user?.ownerFullName || 'Workshop').split(' ')[0] || 'Workshop'
 
   return (
     <ScrollView
@@ -82,68 +150,87 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />
       }
     >
-      <LinearGradient colors={[...gradients.heroRich]} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <AnimatedFadeIn>
-          <View style={styles.heroBadge}>
-            <Ionicons name="briefcase" size={15} color={colors.primary[700]} />
-            <Text style={styles.heroBadgeText}>Workshop dashboard</Text>
+      <View style={styles.heroShell}>
+        <HeroDecorativeRings />
+        <View style={[styles.heroInner, { paddingTop: heroPadTop }]}>
+          <View style={styles.heroTop}>
+            <View style={styles.logoChip}>
+              <View style={styles.logoDot}>
+                <Ionicons name="construct" size={12} color="#fff" />
+              </View>
+              <Text style={styles.logoChipText} numberOfLines={1}>
+                {chipLabel}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => navigation.getParent()?.navigate('Notifications')}
+              accessibilityLabel="Activity and updates"
+              accessibilityHint="Opens your in-app notifications inbox"
+            >
+              <Ionicons name="notifications-outline" size={20} color="#f8fafc" />
+              {unreadActivity > 0 ? <View style={styles.notifDot} /> : null}
+            </TouchableOpacity>
           </View>
-          <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
-          <View style={styles.heroAccent} />
-          <Text style={styles.greetingSub}>Quote open jobs, chat with customers, get paid.</Text>
-        </AnimatedFadeIn>
-      </LinearGradient>
-      <View style={styles.statsRow}>
-        <AnimatedFadeIn delay={0} duration={280} style={styles.statCellWrap}>
-          <View style={[styles.statBox, styles.statBoxOpen, styles.statOpenCard, styles.statFill]}>
-            <IconBadge
-              name="document-text-outline"
-              size={22}
-              color={colors.primary[600]}
-              backgroundColor={colors.primary[100]}
-              style={styles.statIconOpen}
-            />
-            <Text style={styles.statValueOpen}>{openRequests.length}</Text>
-            <Text style={styles.statLabelOpen}>Open</Text>
-          </View>
-        </AnimatedFadeIn>
-        <AnimatedFadeIn delay={60} duration={280} style={styles.statCellWrap}>
-          <View style={[styles.statBox, styles.statBoxLarge, styles.statActiveCard, styles.statFill]}>
-            <IconBadge
-              name="time"
-              size={28}
-              color={colors.accent.violet}
-              backgroundColor="rgba(139, 92, 246, 0.16)"
-              style={styles.statIconLarge}
-            />
-            <Text style={styles.statValueLarge}>{active.length}</Text>
-            <Text style={styles.statLabelLarge}>Active</Text>
-          </View>
-        </AnimatedFadeIn>
-        <AnimatedFadeIn delay={120} duration={280} style={styles.statCellWrap}>
-          <View style={[styles.statBox, styles.statBoxLarge, styles.statDoneCard, styles.statFill]}>
-            <IconBadge
-              name="checkmark-done"
-              size={28}
-              color={colors.accent.green}
-              backgroundColor="rgba(16, 185, 129, 0.18)"
-              style={styles.statIconLarge}
-            />
-            <Text style={styles.statValueLarge}>{completed.length}</Text>
-            <Text style={styles.statLabelLarge}>Done</Text>
-          </View>
-        </AnimatedFadeIn>
+
+          <AnimatedFadeIn>
+            <Text style={styles.greeting}>{getGreetingLine(name)}</Text>
+            <Text style={styles.greetingSub}>Quote open jobs, chat with customers, get paid.</Text>
+            <View style={styles.heroStatRow}>
+              <View style={[styles.statPill, styles.statPillActive]}>
+                <Text style={styles.statPillValue}>{openRequests.length}</Text>
+                <Text style={[styles.statPillLabel, styles.statPillLabelOnGreen]}>Open</Text>
+              </View>
+              <View style={styles.statPill}>
+                <Text style={styles.statPillValue}>{active.length}</Text>
+                <Text style={styles.statPillLabel}>Active</Text>
+              </View>
+              <View style={styles.statPill}>
+                <Text style={styles.statPillValue}>{completed.length}</Text>
+                <Text style={styles.statPillLabel}>Done</Text>
+              </View>
+            </View>
+          </AnimatedFadeIn>
+        </View>
       </View>
 
-      {pending.length > 0 && (
+      {pendingPreview.length === 0 && openPreview.length === 0 && recentPreview.length === 0 && (
+        <View style={styles.emptyDash}>
+          <Text style={styles.emptyDashTitle}>Nothing on your board yet</Text>
+          <Text style={styles.emptyDashText}>
+            Open requests appear here for you to quote. Turn on availability so customers can find you.
+          </Text>
+          <Button
+            title="Browse open requests"
+            onPress={() => navigation.navigate('Bookings')}
+            style={styles.emptyDashBtn}
+          />
+          <Button
+            title="Turn on availability"
+            variant="outline"
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.emptyDashBtn}
+          />
+          <Button
+            title="Complete your profile"
+            variant="outline"
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.emptyDashBtn}
+          />
+        </View>
+      )}
+
+      {pendingPreview.length > 0 && (
         <>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIconWrap, { backgroundColor: 'rgba(139, 92, 246, 0.12)' }]}>
-              <Ionicons name="paper-plane-outline" size={18} color={colors.accent.violet} />
-            </View>
-            <Text style={styles.sectionTitle}>Sent to you — send a quote</Text>
-          </View>
-          {pending.slice(0, 5).map((b: any) => (
+          <SectionHeading
+            icon="paper-plane-outline"
+            iconBg={colors.brand.requestedBg}
+            iconColor={colors.brand.requestedFg}
+            title="Sent to you — send a quote"
+            showSeeAll={pending.length > LIST_PREVIEW}
+            onSeeAll={() => navigation.navigate('Bookings')}
+          />
+          {pendingPreview.map((b: any) => (
             <TouchableOpacity
               key={b.id}
               onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
@@ -151,7 +238,13 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             >
               <Card style={styles.bookingCard}>
                 <View style={styles.bookingCardInner}>
-                  <IconBadge name="person" size={20} color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} style={styles.bookingIcon} />
+                  <IconBadge
+                    name="person"
+                    size={20}
+                    color={colors.brand.requestedFg}
+                    backgroundColor={colors.brand.requestedBg}
+                    style={styles.bookingIcon}
+                  />
                   <View style={styles.bookingContent}>
                     <Text style={styles.vehicle} numberOfLines={1}>
                       {b.vehicle?.brand} {b.vehicle?.model}
@@ -163,7 +256,7 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                       </Text>
                     </View>
                     <View style={styles.openLabelWrap}>
-                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary[600]} />
+                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.brand.primary} />
                       <Text style={styles.openLabel}>Direct request · tap to quote</Text>
                     </View>
                   </View>
@@ -175,15 +268,17 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         </>
       )}
 
-      {openRequests.length > 0 && (
+      {openPreview.length > 0 && (
         <>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIconWrap, { backgroundColor: colors.primary[100] }]}>
-              <Ionicons name="flash-outline" size={18} color={colors.primary[600]} />
-            </View>
-            <Text style={styles.sectionTitle}>Open requests (quote to win)</Text>
-          </View>
-          {openRequests.slice(0, 5).map((b: any) => (
+          <SectionHeading
+            icon="flash-outline"
+            iconBg={colors.primary[100]}
+            iconColor={colors.brand.primary}
+            title="Open requests (quote to win)"
+            showSeeAll={openRequests.length > LIST_PREVIEW}
+            onSeeAll={() => navigation.navigate('Bookings')}
+          />
+          {openPreview.map((b: any) => (
             <TouchableOpacity
               key={b.id}
               onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
@@ -191,7 +286,13 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             >
               <Card style={styles.bookingCard}>
                 <View style={styles.bookingCardInner}>
-                  <IconBadge name="car-sport" size={20} color={colors.primary[600]} backgroundColor={colors.primary[50]} style={styles.bookingIcon} />
+                  <IconBadge
+                    name="car-sport"
+                    size={20}
+                    color={colors.brand.primary}
+                    backgroundColor={colors.primary[50]}
+                    style={styles.bookingIcon}
+                  />
                   <View style={styles.bookingContent}>
                     <Text style={styles.vehicle} numberOfLines={1}>
                       {b.vehicle?.brand} {b.vehicle?.model}
@@ -203,7 +304,7 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                       </Text>
                     </View>
                     <View style={styles.openLabelWrap}>
-                      <Ionicons name="pricetag-outline" size={14} color={colors.primary[600]} />
+                      <Ionicons name="pricetag-outline" size={14} color={colors.brand.primary} />
                       <Text style={styles.openLabel}>No quote yet</Text>
                     </View>
                   </View>
@@ -212,314 +313,252 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
               </Card>
             </TouchableOpacity>
           ))}
-          {openRequests.length > 5 && (
-            <TouchableOpacity onPress={() => navigation.navigate('Bookings')}>
-              <Text style={styles.seeAll}>See all open requests →</Text>
-            </TouchableOpacity>
-          )}
         </>
       )}
 
-      {recent.length > 0 && (
+      {recentPreview.length > 0 && (
         <>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIconWrap}>
-              <Ionicons name="reader-outline" size={18} color={colors.neutral[600]} />
-            </View>
-            <Text style={styles.sectionTitle}>Recent bookings</Text>
-          </View>
-          {recent.map((b: any) => (
-            <TouchableOpacity
-              key={b.id}
-              onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
-              activeOpacity={0.8}
-            >
-              <Card style={styles.bookingCard}>
-                <View style={styles.bookingCardInner}>
-                  <IconBadge name="car-sport" size={20} color={colors.accent.violet} backgroundColor={colors.accent.violet + '22'} style={styles.bookingIcon} />
-                  <View style={styles.bookingContent}>
-                    <View style={styles.cardRow}>
-                      <Text style={[styles.vehicle, styles.vehicleFlex]} numberOfLines={1}>
+          <SectionHeading
+            icon="reader-outline"
+            iconBg={colors.neutral[100]}
+            iconColor={colors.neutral[600]}
+            title="Recent bookings"
+            showSeeAll={sortedBookings.length > LIST_PREVIEW}
+            onSeeAll={() => navigation.navigate('Bookings')}
+          />
+          {recentPreview.map((b: any) => {
+            const badge = bookingStatusBadgeColors(b.status)
+            return (
+              <TouchableOpacity
+                key={b.id}
+                onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
+                activeOpacity={0.8}
+              >
+                <Card style={styles.bookingCard}>
+                  <View style={styles.bookingCardInner}>
+                    <IconBadge
+                      name="car-sport"
+                      size={20}
+                      color={colors.brand.primary}
+                      backgroundColor={colors.primary[100]}
+                      style={styles.bookingIcon}
+                    />
+                    <View style={styles.bookingContent}>
+                      <Text style={styles.vehicle} numberOfLines={2}>
                         {b.vehicle?.brand} {b.vehicle?.model}
                       </Text>
-                      <View style={[styles.statusChip, { backgroundColor: statusColor(b.status) }]}>
-                        <Text style={styles.statusChipText}>{b.status?.replace('_', ' ')}</Text>
+                      <View style={styles.faultRow}>
+                        <Ionicons name="construct-outline" size={14} color={colors.textSecondary} />
+                        <Text style={styles.fault} numberOfLines={2}>
+                          {b.fault?.name}
+                        </Text>
+                      </View>
+                      {b.estimatedCost != null && (
+                        <View style={styles.costRow}>
+                          <Ionicons name="cash-outline" size={14} color={colors.brand.primary} />
+                          <Text style={styles.cost}>₦{Number(b.estimatedCost).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      <View style={[styles.statusChip, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.statusChipText, { color: badge.fg }]}>
+                          {bookingStatusLabel(b.status)}
+                        </Text>
                       </View>
                     </View>
-                    <View style={styles.faultRow}>
-                      <Ionicons name="construct-outline" size={14} color={colors.textSecondary} />
-                      <Text style={styles.fault} numberOfLines={1}>
-                        {b.fault?.name}
-                      </Text>
-                    </View>
-                    {b.estimatedCost != null && (
-                      <View style={styles.costRow}>
-                        <Ionicons name="cash-outline" size={14} color={colors.accent.green} />
-                        <Text style={styles.cost}>₦{Number(b.estimatedCost).toLocaleString()}</Text>
-                      </View>
-                    )}
+                    <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
-                </View>
-              </Card>
-            </TouchableOpacity>
-          ))}
+                </Card>
+              </TouchableOpacity>
+            )
+          })}
         </>
       )}
-
-      <View style={[styles.actionSection, { paddingHorizontal: PAD }]}>
-        <View style={styles.actionSectionHeader}>
-          <View style={[styles.sectionIconWrap, { backgroundColor: colors.primary[100] }]}>
-            <Ionicons name="grid-outline" size={18} color={colors.primary[600]} />
-          </View>
-          <Text style={styles.actionSectionTitle}>Quick actions</Text>
-        </View>
-        <View style={styles.actionRow}>
-          <DashboardActionTile
-            icon="briefcase"
-            title="All bookings"
-            subtitle="Quotes & job status"
-            iconColor={colors.primary[700]}
-            iconBg={colors.primary[100]}
-            onPress={() => navigation.navigate('Bookings')}
-          />
-          <DashboardActionTile
-            icon="time-outline"
-            title="Job history"
-            subtitle="Completed & paid"
-            iconColor={colors.accent.green}
-            iconBg={colors.accent.green + '22'}
-            onPress={() => navigation.getParent()?.navigate('MechanicJobHistory')}
-          />
-        </View>
-        <View style={styles.actionRow}>
-          <DashboardActionTile
-            icon="wallet-outline"
-            title="Wallet"
-            subtitle="Earnings & payouts"
-            iconColor={colors.accent[700]}
-            iconBg={colors.accent[50]}
-            onPress={() => navigation.navigate('Wallet')}
-          />
-          <DashboardActionTile
-            icon="person-circle-outline"
-            title="Profile"
-            subtitle="Workshop & availability"
-            iconColor={colors.accent.violet}
-            iconBg={colors.accent.violet + '22'}
-            onPress={() => navigation.navigate('Profile')}
-          />
-        </View>
-      </View>
     </ScrollView>
   )
 }
 
-function statusColor(status: string): string {
-  switch (status) {
-    case 'DONE':
-    case 'PAID':
-    case 'DELIVERED':
-      return colors.accent.green + '22'
-    case 'IN_PROGRESS':
-    case 'ACCEPTED':
-      return colors.primary[100]
-    default:
-      return colors.neutral[200]
-  }
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: 36, width: '100%' },
-  hero: {
-    marginHorizontal: PAD,
-    marginTop: 10,
-    marginBottom: 22,
-    padding: 24,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(8, 108, 64, 0.12)',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.07,
-    shadowRadius: 24,
-    elevation: 5,
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 100,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: colors.primary[100],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  heroBadgeText: { ...typography.captionStrong, fontSize: 12, color: colors.primary[800], letterSpacing: 0.2 },
-  greeting: {
-    ...typography.title,
-    fontSize: 26,
-    letterSpacing: -0.6,
-    lineHeight: 32,
-    color: colors.text,
-  },
-  heroAccent: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary[500],
-    marginTop: 14,
-    opacity: 0.85,
-  },
-  greetingSub: {
-    ...typography.body,
-    color: colors.neutral[600],
-    marginTop: 12,
-    lineHeight: 23,
-    fontSize: 15,
-    maxWidth: '100%',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 26,
-    paddingHorizontal: PAD,
-    alignItems: 'stretch',
-    alignSelf: 'stretch',
-    width: '100%',
-  },
-  /** Row child must flex — inner stat card then fills this. */
-  statCellWrap: {
+  loadingWrap: {
     flex: 1,
-    minWidth: 0,
-  },
-  statFill: {
-    flex: 1,
-    width: '100%',
-  },
-  statBox: {
-    minWidth: 0,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  container: { flex: 1, backgroundColor: colors.background },
+  scroll: { paddingBottom: 40, width: '100%' },
+  heroShell: {
+    width: '100%',
+    backgroundColor: colors.brand.forest,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.neutral[100],
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
+    marginBottom: 20,
+    shadowColor: colors.brand.forest,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  statBoxOpen: {
-    paddingVertical: 18,
-    paddingHorizontal: 6,
-    minHeight: 132,
-    borderRadius: 18,
-    borderTopWidth: 2,
-    borderTopColor: colors.primary[500],
+  heroInner: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    position: 'relative',
   },
-  statOpenCard: {
-    backgroundColor: colors.surface,
-  },
-  statBoxLarge: {
-    paddingVertical: 22,
-    paddingHorizontal: 12,
-    minHeight: 132,
-    borderRadius: 22,
-    borderTopWidth: 4,
-  },
-  statActiveCard: {
-    backgroundColor: 'rgba(139, 92, 246, 0.06)',
-    borderColor: 'rgba(139, 92, 246, 0.2)',
-    borderTopColor: colors.accent.violet,
-    shadowColor: colors.accent.violet,
-    shadowOpacity: 0.1,
-  },
-  statDoneCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.07)',
-    borderColor: 'rgba(16, 185, 129, 0.22)',
-    borderTopColor: colors.accent.green,
-    shadowColor: colors.accent.green,
-    shadowOpacity: 0.08,
-  },
-  statIconOpen: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  statIconLarge: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-  },
-  statValueOpen: {
-    fontFamily: fonts.bold,
-    fontSize: 17,
-    color: colors.text,
-    marginTop: 6,
-    letterSpacing: -0.3,
-  },
-  statLabelOpen: {
-    fontFamily: fonts.regular,
-    fontSize: 11,
-    color: colors.neutral[500],
-    marginTop: 3,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-  statValueLarge: {
-    fontFamily: fonts.bold,
-    fontSize: 30,
-    color: colors.text,
-    marginTop: 12,
-    letterSpacing: -0.9,
-  },
-  statLabelLarge: {
-    fontFamily: fonts.semiBold,
-    fontSize: 13,
-    color: colors.neutral[600],
-    marginTop: 5,
-    textAlign: 'center',
-    letterSpacing: 0.15,
-  },
-  sectionHeader: {
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  logoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingLeft: 8,
+    paddingRight: 12,
+    alignSelf: 'flex-start',
+    maxWidth: '78%',
+  },
+  logoDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoChipText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 12,
+    color: '#f8fafc',
+    letterSpacing: 0.35,
+    flexShrink: 1,
+  },
+  emptyDash: {
+    paddingHorizontal: PAD,
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  emptyDashTitle: {
+    fontFamily: fonts.semiBold,
+    fontSize: 18,
+    color: colors.brand.forest,
+    marginBottom: 8,
+  },
+  emptyDashText: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 21,
+    marginBottom: 16,
+  },
+  emptyDashBtn: { marginBottom: 10, alignSelf: 'stretch' },
+  notifBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 8,
+    right: 9,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.brand.highlight,
+    borderWidth: 1.5,
+    borderColor: colors.brand.forest,
+  },
+  greeting: { ...typography.title, color: '#f8fafc', letterSpacing: -0.5, marginBottom: 6 },
+  greetingSub: {
+    ...typography.body,
+    color: 'rgba(248,250,252,0.55)',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  heroStatRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statPill: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  statPillActive: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  statPillValue: {
+    fontFamily: fonts.headingBold,
+    fontSize: 22,
+    color: '#f8fafc',
+    marginBottom: 4,
+  },
+  statPillLabel: {
+    fontFamily: fonts.semiBold,
+    fontSize: 10,
+    color: 'rgba(248,250,252,0.6)',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  statPillLabelOnGreen: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
     marginTop: 4,
     paddingHorizontal: PAD,
+    gap: 8,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
   },
   sectionIconWrap: {
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
     ...typography.section,
-    flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     letterSpacing: -0.35,
-    color: colors.text,
+    color: colors.brand.forest,
+    flex: 1,
     marginBottom: 0,
-    paddingHorizontal: 0,
   },
+  seeAll: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.brand.primary, letterSpacing: 0.3 },
   bookingCard: {
     marginBottom: 12,
     marginHorizontal: PAD,
-    borderRadius: 18,
+    borderRadius: layout.cardRadius,
     borderWidth: 1,
     borderColor: colors.neutral[100],
     shadowColor: '#0f172a',
@@ -531,42 +570,20 @@ const styles = StyleSheet.create({
   bookingCardInner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
   bookingIcon: { width: 44, height: 44, borderRadius: 22 },
   bookingContent: { flex: 1, marginLeft: 14, minWidth: 0 },
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   vehicle: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.text, letterSpacing: -0.2 },
-  vehicleFlex: { flex: 1, minWidth: 0 },
   faultRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  fault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
+  fault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, flex: 1, minWidth: 0 },
   openLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  openLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.primary[600] },
-  statusChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, flexShrink: 0 },
-  statusChipText: { fontFamily: fonts.semiBold, fontSize: 11, color: colors.text, letterSpacing: 0.2 },
+  openLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.brand.primary },
+  statusChip: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    flexShrink: 0,
+  },
+  statusChipText: { fontFamily: fonts.semiBold, fontSize: 12, letterSpacing: 0.15 },
   costRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   cost: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.text },
-  seeAll: {
-    fontFamily: fonts.semiBold,
-    fontSize: 14,
-    color: colors.primary[600],
-    marginBottom: 18,
-    marginHorizontal: PAD,
-    marginTop: 4,
-  },
-  actionSection: { marginTop: 8, marginBottom: 20, alignSelf: 'stretch' },
-  actionSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
-  },
-  actionSectionTitle: {
-    ...typography.section,
-    fontSize: 17,
-    letterSpacing: -0.35,
-    color: colors.text,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: TILE_GAP,
-    marginBottom: TILE_GAP,
-    alignSelf: 'stretch',
-  },
 })

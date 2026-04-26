@@ -27,6 +27,8 @@ import {
 } from '../../services/api'
 import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } from '../../services/socket'
 import { colors } from '../../theme/colors'
+import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { BookingProgressBar } from '../../components/BookingProgressBar'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
@@ -57,6 +59,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [comment, setComment] = useState('')
   const [submittingRating, setSubmittingRating] = useState(false)
   const [showRating, setShowRating] = useState(false)
+  const [ratingSkipped, setRatingSkipped] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
   const [savingDescription, setSavingDescription] = useState(false)
@@ -89,6 +92,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [chatExpanded, setChatExpanded] = useState(true)
 
   useEffect(() => {
+    setRatingSkipped(false)
     setJobDetailsExpanded(true)
     setQuotesExpanded(true)
     setQaExpanded(true)
@@ -408,7 +412,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       !booking.paidAt &&
       (booking.estimatedCost ?? 0) > 0
     if (canPayNow && payOk) return { kind: 'pay' as const }
-    if (booking.status === 'DONE' && !showRating) return { kind: 'rate' as const }
+    const alreadyRated = Array.isArray(booking.ratings) && booking.ratings.length > 0
+    const canRate =
+      Boolean(booking.mechanicId) &&
+      !alreadyRated &&
+      ['DONE', 'PAID', 'DELIVERED'].includes(booking.status)
+    if (canRate && !showRating && !ratingSkipped) return { kind: 'rate' as const }
     if (booking.status === 'REQUESTED' && pending.length === 1) {
       const q = pending[0]
       return {
@@ -418,7 +427,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       }
     }
     return { kind: 'none' as const }
-  }, [booking, quotes, showRating, publicFlags])
+  }, [booking, quotes, showRating, ratingSkipped, publicFlags])
 
   if (loading || !booking) return <LoadingOverlay />
 
@@ -443,6 +452,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     booking.status === 'PAID' ||
     booking.status === 'DELIVERED'
 
+  const bookingStatusBadge = bookingStatusBadgeColors(booking.status)
+
   const stickyPad =
     primaryBar.kind === 'none'
       ? 24
@@ -459,9 +470,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               {booking.vehicle?.brand} {booking.vehicle?.model}
             </Text>
             <Text style={styles.fault}>{booking.fault?.name}</Text>
-            <View style={[styles.statusChip, { backgroundColor: statusBg(booking.status) }]}>
-              <Text style={styles.statusChipText}>{booking.status?.replace('_', ' ')}</Text>
+            <View style={[styles.statusChip, { backgroundColor: bookingStatusBadge.bg }]}>
+              <Text style={[styles.statusChipText, { color: bookingStatusBadge.fg }]}>
+                {bookingStatusLabel(booking.status)}
+              </Text>
             </View>
+            <BookingProgressBar status={booking.status} />
             {booking.estimatedCost != null && (
               <Text style={styles.cost}>Est. ₦{Number(booking.estimatedCost).toLocaleString()}</Text>
             )}
@@ -757,12 +771,20 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             </View>
           )}
           {primaryBar.kind === 'rate' && (
-            <Button
-              title="Rate mechanic"
-              onPress={() => setShowRating(true)}
-              variant="secondary"
-              style={styles.stickyPrimaryBtn}
-            />
+            <View style={styles.stickyInner}>
+              <Button
+                title="Rate mechanic"
+                onPress={() => setShowRating(true)}
+                variant="secondary"
+                style={styles.stickyPrimaryBtn}
+              />
+              <Button
+                title="Skip for now"
+                variant="outline"
+                onPress={() => setRatingSkipped(true)}
+                style={styles.stickySecondaryBtn}
+              />
+            </View>
           )}
           {primaryBar.kind === 'quote' && (
             <Button
@@ -858,8 +880,11 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             />
             <Button title="Submit" onPress={submitRating} loading={submittingRating} />
             <Button
-              title="Cancel"
-              onPress={() => setShowRating(false)}
+              title="Skip for now"
+              onPress={() => {
+                setShowRating(false)
+                setRatingSkipped(true)
+              }}
               variant="outline"
               style={styles.cancelBtn}
             />
@@ -894,20 +919,6 @@ function formatJobAddress(booking: any): string {
   return 'Job location'
 }
 
-function statusBg(status: string): string {
-  switch (status) {
-    case 'DONE':
-    case 'PAID':
-    case 'DELIVERED':
-      return colors.accent.green + '22'
-    case 'IN_PROGRESS':
-    case 'ACCEPTED':
-      return colors.primary[100]
-    default:
-      return colors.neutral[200]
-  }
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: 20, paddingBottom: 40 },
@@ -922,7 +933,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 12,
   },
-  statusChipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  statusChipText: { fontSize: 13, fontWeight: '600' },
   cost: { fontSize: 17, fontWeight: '700', color: colors.primary[600], marginTop: 10 },
   mech: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
   sectionLabel: {

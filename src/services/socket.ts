@@ -1,13 +1,12 @@
 import { io, Socket } from 'socket.io-client'
 import { useAuthStore } from '../store/authStore'
+import { API_BASE_URL } from '../config/apiBaseUrl'
 
 let socket: Socket | null = null
 
 function getSocketBaseUrl(): string {
-  const url =
-    process.env.EXPO_PUBLIC_API_URL || 'https://mechanic.denicksenglobal.com'
   try {
-    const u = new URL(url)
+    const u = new URL(API_BASE_URL)
     return `${u.protocol === 'https:' ? 'wss:' : 'ws:'}//${u.host}`
   } catch {
     return 'wss://mechanic.denicksenglobal.com'

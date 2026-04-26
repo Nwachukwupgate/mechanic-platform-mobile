@@ -1,16 +1,46 @@
-// Brand colors from frontend: primary green #086C40, accent orange #E68324
+// Primary scale aligned with product green #16a34a; forest anchor #0c2e1a
 export const colors = {
+  /** Homepage / marketing anchor */
+  brand: {
+    forest: '#0c2e1a',
+    primary: '#16a34a',
+    highlight: '#4ade80',
+    page: '#f1f5f4',
+    /** Non-badge accents (e.g. tiles) — aligns with statusBadge.paid */
+    paid: '#15803d',
+    paidBg: '#dcfce7',
+    /** Aligns with statusBadge.requested */
+    requestedBg: '#fff7ed',
+    requestedFg: '#c2410c',
+    /** Aligns with statusBadge.expired */
+    expiredBg: '#f1f5f9',
+    expiredFg: '#475569',
+  },
+  /**
+   * Booking status chips — soft fill + strong text (~AA for small type).
+   * REQUESTED = attention, ACCEPTED = confirmed, IN_PROGRESS = active, DONE/PAID/DELIVERED = success stages, EXPIRED = inactive.
+   */
+  statusBadge: {
+    requested: { bg: '#fff7ed', fg: '#c2410c' },
+    accepted: { bg: '#ede9fe', fg: '#5b21b6' },
+    inProgress: { bg: '#e0f2fe', fg: '#0369a1' },
+    done: { bg: '#ecfdf5', fg: '#047857' },
+    paid: { bg: '#dcfce7', fg: '#15803d' },
+    delivered: { bg: '#ecfdf5', fg: '#047857' },
+    expired: { bg: '#f1f5f9', fg: '#475569' },
+    unknown: { bg: '#e2e8f0', fg: '#334155' },
+  },
   primary: {
-    50: '#ecf7f2',
-    100: '#d3ede2',
-    200: '#a7dcc5',
-    300: '#6fc4a3',
-    400: '#3da87d',
-    500: '#1e8d62',
-    600: '#086C40',
-    700: '#065732',
-    800: '#054329',
-    900: '#032e1b',
+    50: '#f0fdf4',
+    100: '#dcfce7',
+    200: '#bbf7d0',
+    300: '#86efac',
+    400: '#4ade80',
+    500: '#22c55e',
+    600: '#16a34a',
+    700: '#15803d',
+    800: '#166534',
+    900: '#0c2e1a',
   },
   accent: {
     50: '#fdf4ed',
@@ -40,8 +70,8 @@ export const colors = {
     800: '#1e293b',
     900: '#0f172a',
   },
-  /** Slight green cast — reads warmer than flat gray */
-  background: '#f2f7f4',
+  /** Slight green cast — easy on eyes for long sessions */
+  background: '#f1f5f4',
   surface: '#ffffff',
   text: '#0f172a',
   textSecondary: '#64748b',

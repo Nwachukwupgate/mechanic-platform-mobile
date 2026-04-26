@@ -4,6 +4,7 @@ import { MechanicTabs } from './MechanicTabs'
 import { MechanicBookingDetailScreen } from '../screens/mechanic/MechanicBookingDetailScreen'
 import { MechanicJobHistoryScreen } from '../screens/mechanic/MechanicJobHistoryScreen'
 import { MechanicTransactionDetailScreen } from '../screens/mechanic/MechanicTransactionDetailScreen'
+import { NotificationsScreen } from '../screens/shared/NotificationsScreen'
 import { colors } from '../theme/colors'
 
 const Stack = createNativeStackNavigator()
@@ -19,6 +20,7 @@ export function MechanicStack() {
         component={MechanicTransactionDetailScreen}
         options={{ title: 'Transaction' }}
       />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Activity' }} />
     </Stack.Navigator>
   )
 }

@@ -12,24 +12,21 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mechanic.denicksenglobal.com",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBOOgtBlQDixpiOlXf41WoeLNRlVOOoRMk"
+        "EXPO_PUBLIC_API_URL": "https://mechanic.denicksenglobal.com"
       }
     },
     "production": {
       "distribution": "store",
       "android": { "buildType": "app-bundle" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mechanic.denicksenglobal.com",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBOOgtBlQDixpiOlXf41WoeLNRlVOOoRMk"
+        "EXPO_PUBLIC_API_URL": "https://mechanic.denicksenglobal.com"
       }
     },
     "apk": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mechanic.denicksenglobal.com",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBOOgtBlQDixpiOlXf41WoeLNRlVOOoRMk"
+        "EXPO_PUBLIC_API_URL": "https://mechanic.denicksenglobal.com"
       }
     }
   },

@@ -29,6 +29,11 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 type LocalJobPhoto = { uri: string; name: string; type: string }
 
 type MechanicResult = {
+  distanceKm?: number
+  averageRating?: number | null
+  jobsCompleted?: number
+  typicalResponseHours?: number | null
+  nextAvailableNote?: string | null
   mechanic?: {
     id: string
     companyName?: string
@@ -40,6 +45,7 @@ type MechanicResult = {
     bio?: string
     expertise?: string[]
     verified?: boolean
+    isVerified?: boolean
   }
   workshopAddress?: string
   workshopLat?: number
@@ -577,7 +583,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
                     <View style={styles.mechanicInfo}>
                       <View style={styles.mechanicNameRow}>
                         <Text style={styles.mechanicName}>{m.mechanic?.companyName || 'Garage'}</Text>
-                        {m.mechanic?.verified ? (
+                        {m.mechanic?.isVerified || m.mechanic?.verified ? (
                           <View style={styles.verifiedBadge}>
                             <Ionicons name="checkmark-circle" size={18} color={colors.accent.green} />
                             <Text style={styles.verifiedText}>Verified</Text>
@@ -588,11 +594,36 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
                       {typeof rating === 'number' ? (
                         <View style={styles.ratingRow}>
                           <Ionicons name="star" size={16} color={colors.accent.amber} />
-                          <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                          <Text style={styles.ratingText}>{rating.toFixed(1)} avg</Text>
                         </View>
                       ) : null}
                     </View>
                   </View>
+                  <View style={styles.trustRow}>
+                    {typeof m.typicalResponseHours === 'number' && m.typicalResponseHours > 0 ? (
+                      <View style={styles.trustPill}>
+                        <Ionicons name="time-outline" size={14} color={colors.brand.primary} />
+                        <Text style={styles.trustPillText}>Responds in ~{m.typicalResponseHours}h</Text>
+                      </View>
+                    ) : null}
+                    {typeof m.jobsCompleted === 'number' && m.jobsCompleted > 0 ? (
+                      <View style={styles.trustPill}>
+                        <Ionicons name="ribbon-outline" size={14} color={colors.brand.primary} />
+                        <Text style={styles.trustPillText}>{m.jobsCompleted} jobs done</Text>
+                      </View>
+                    ) : null}
+                    {typeof m.jobsCompleted === 'number' && m.jobsCompleted >= 8 ? (
+                      <View style={styles.trustPill}>
+                        <Ionicons name="heart-outline" size={14} color={colors.brand.primary} />
+                        <Text style={styles.trustPillText}>Strong repeat use</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {m.nextAvailableNote ? (
+                    <Text style={styles.nextNote} numberOfLines={2}>
+                      {m.nextAvailableNote}
+                    </Text>
+                  ) : null}
                   {m.mechanic?.bio ? (
                     <Text style={styles.bio} numberOfLines={2}>{m.mechanic.bio}</Text>
                   ) : null}
@@ -762,6 +793,24 @@ const styles = StyleSheet.create({
   mechanicOwner: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   ratingText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  trustRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  trustPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: colors.primary[50],
+  },
+  trustPillText: { fontSize: 12, fontWeight: '600', color: colors.brand.primary },
+  nextNote: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 10,
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
   bio: { fontSize: 14, color: colors.textSecondary, marginTop: 14, lineHeight: 22 },
   expertiseRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   expertiseChip: { backgroundColor: colors.primary[50], paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },

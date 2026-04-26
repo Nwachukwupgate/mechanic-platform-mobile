@@ -1,6 +1,5 @@
 import React from 'react'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { Ionicons } from '@expo/vector-icons'
 import { DashboardScreen } from '../screens/user/DashboardScreen'
 import { FindMechanicsScreen } from '../screens/user/FindMechanicsScreen'
 import { BookingsScreen } from '../screens/user/BookingsScreen'
@@ -8,6 +7,7 @@ import { ProfileScreen } from '../screens/user/ProfileScreen'
 import { VehiclesScreen } from '../screens/user/VehiclesScreen'
 import { colors } from '../theme/colors'
 import { fonts } from '../theme/fonts'
+import { TabBarIconWithDot } from '../components/TabBarIconWithDot'
 
 const Tab = createBottomTabNavigator()
 
@@ -23,14 +23,14 @@ export function UserTabs() {
         },
         headerTitleStyle: { fontFamily: fonts.semiBold, fontSize: 17, color: colors.text },
         headerTintColor: colors.text,
-        tabBarActiveTintColor: colors.primary[600],
+        tabBarActiveTintColor: colors.brand.primary,
         tabBarInactiveTintColor: colors.neutral[500],
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopWidth: 0,
-          height: 62,
-          paddingTop: 6,
-          paddingBottom: 8,
+          height: 66,
+          paddingTop: 4,
+          paddingBottom: 6,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -3 },
           shadowOpacity: 0.08,
@@ -45,7 +45,10 @@ export function UserTabs() {
         component={DashboardScreen}
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          headerShown: false,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIconWithDot name="home" size={size} color={color} focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -53,7 +56,9 @@ export function UserTabs() {
         component={FindMechanicsScreen}
         options={{
           title: 'Find',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIconWithDot name="search" size={size} color={color} focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -62,7 +67,9 @@ export function UserTabs() {
         options={{
           title: 'My bookings',
           tabBarLabel: 'Bookings',
-          tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIconWithDot name="list" size={size} color={color} focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -70,7 +77,9 @@ export function UserTabs() {
         component={VehiclesScreen}
         options={{
           title: 'Vehicles',
-          tabBarIcon: ({ color, size }) => <Ionicons name="car" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIconWithDot name="car" size={size} color={color} focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
@@ -78,7 +87,9 @@ export function UserTabs() {
         component={ProfileScreen}
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIconWithDot name="person" size={size} color={color} focused={focused} />
+          ),
         }}
       />
     </Tab.Navigator>

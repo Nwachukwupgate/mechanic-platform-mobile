@@ -16,6 +16,11 @@ type Props = {
   iconColor: string
   iconBg: string
   onPress: () => void
+  /** Dark forest tile — primary CTA on home grid */
+  variant?: 'default' | 'featured'
+  /** Row: icon | text | chevron (default). Column: icon above text (dashboard grid). */
+  layout?: 'row' | 'column'
+  showChevron?: boolean
 }
 
 export function DashboardActionTile({
@@ -26,10 +31,24 @@ export function DashboardActionTile({
   iconColor,
   iconBg,
   onPress,
+  variant = 'default',
+  layout = 'row',
+  showChevron = true,
 }: Props) {
+  const featured = variant === 'featured'
+  const column = layout === 'column'
+  const titleColor = featured ? '#f8fafc' : colors.text
+  const subColor = featured ? 'rgba(248,250,252,0.78)' : colors.textSecondary
+  const chevronColor = featured ? 'rgba(248,250,252,0.45)' : colors.neutral[400]
+
   return (
     <TouchableOpacity
-      style={[styles.tile, width != null ? { width } : { flex: 1, minWidth: 0 }]}
+      style={[
+        styles.tile,
+        featured && styles.tileFeatured,
+        column && styles.tileColumn,
+        width != null ? { width } : { flex: 1, minWidth: 0 },
+      ]}
       onPress={onPress}
       activeOpacity={0.88}
       accessibilityRole="button"
@@ -38,17 +57,19 @@ export function DashboardActionTile({
       <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
         <Ionicons name={icon} size={22} color={iconColor} />
       </View>
-      <View style={styles.textCol}>
-        <Text style={styles.title} numberOfLines={2}>
+      <View style={[styles.textCol, column && styles.textColColumn]}>
+        <Text style={[styles.title, { color: titleColor }]} numberOfLines={2}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={2}>
+          <Text style={[styles.subtitle, { color: subColor }]} numberOfLines={2}>
             {subtitle}
           </Text>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.neutral[400]} style={styles.chevron} />
+      {!column && showChevron ? (
+        <Ionicons name="chevron-forward" size={18} color={chevronColor} style={styles.chevron} />
+      ) : null}
     </TouchableOpacity>
   )
 }
@@ -68,18 +89,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.neutral[100],
-    minHeight: 88,
-    gap: 10,
-    shadowColor: '#000',
+    minHeight: 92,
+    gap: 12,
+    shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 3,
+  },
+  tileFeatured: {
+    backgroundColor: colors.brand.forest,
+    borderColor: 'rgba(74, 222, 128, 0.25)',
+    shadowColor: colors.brand.forest,
+    shadowOpacity: 0.25,
+  },
+  tileColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    minHeight: 108,
+    paddingVertical: 14,
   },
   iconWrap: {
     width: 44,
@@ -92,16 +126,18 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  textColColumn: {
+    flex: 0,
+    width: '100%',
+  },
   title: {
     fontFamily: fonts.semiBold,
     fontSize: 14,
-    color: colors.text,
     lineHeight: 19,
   },
   subtitle: {
     fontFamily: fonts.regular,
     fontSize: 11,
-    color: colors.textSecondary,
     marginTop: 3,
     lineHeight: 15,
   },

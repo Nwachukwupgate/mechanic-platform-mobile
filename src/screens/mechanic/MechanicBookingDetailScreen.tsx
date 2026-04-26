@@ -18,6 +18,8 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } from '../../services/socket'
 import { colors } from '../../theme/colors'
+import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { BookingProgressBar } from '../../components/BookingProgressBar'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
@@ -166,6 +168,8 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
 
+  const bookingStatusBadge = bookingStatusBadgeColors(status)
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -174,9 +178,12 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
             <Text style={styles.vehicle}>{booking.vehicle?.brand} {booking.vehicle?.model}</Text>
             <Text style={styles.fault}>{booking.fault?.name}</Text>
             <Text style={styles.customer}>{booking.user?.firstName} {booking.user?.lastName}</Text>
-            <View style={[styles.statusChip, { backgroundColor: statusBg(status) }]}>
-              <Text style={styles.statusChipText}>{status?.replace('_', ' ')}</Text>
+            <View style={[styles.statusChip, { backgroundColor: bookingStatusBadge.bg }]}>
+              <Text style={[styles.statusChipText, { color: bookingStatusBadge.fg }]}>
+                {bookingStatusLabel(status)}
+              </Text>
             </View>
+            <BookingProgressBar status={status} />
           </View>
 
           {booking.description ? (
@@ -299,20 +306,6 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   )
 }
 
-function statusBg(status: string): string {
-  switch (status) {
-    case 'DONE':
-    case 'PAID':
-    case 'DELIVERED':
-      return colors.accent.green + '22'
-    case 'IN_PROGRESS':
-    case 'ACCEPTED':
-      return colors.primary[100]
-    default:
-      return colors.neutral[200]
-  }
-}
-
 function formatJobAddress(booking: any): string {
   if (booking.locationAddress && typeof booking.locationAddress === 'string') return booking.locationAddress
   const parts = [booking.locationStreet, booking.locationCity, booking.locationState].filter(Boolean)
@@ -335,7 +328,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 12,
   },
-  statusChipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  statusChipText: { fontSize: 13, fontWeight: '600' },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',

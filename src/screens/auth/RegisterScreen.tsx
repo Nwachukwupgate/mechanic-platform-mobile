@@ -101,8 +101,18 @@ export function RegisterScreen({ navigation }: { navigation: any }) {
             <Text style={styles.title}>Sign up</Text>
           </View>
         <View style={styles.roleRow}>
-          <Button title="User" onPress={() => { setRole('USER'); setError('') }} variant={role === 'USER' ? 'primary' : 'outline'} style={styles.roleBtn} />
-          <Button title="Mechanic" onPress={() => { setRole('MECHANIC'); setError('') }} variant={role === 'MECHANIC' ? 'primary' : 'outline'} style={styles.roleBtn} />
+          <Button
+            title="User"
+            onPress={() => { setRole('USER'); setError('') }}
+            variant={role === 'USER' ? 'primary' : 'outline'}
+            hugContent={role === 'USER'}
+          />
+          <Button
+            title="Mechanic"
+            onPress={() => { setRole('MECHANIC'); setError('') }}
+            variant={role === 'MECHANIC' ? 'primary' : 'outline'}
+            hugContent={role === 'MECHANIC'}
+          />
         </View>
         <Card>
           {role === 'USER' ? (
@@ -175,8 +185,15 @@ const styles = StyleSheet.create({
   logo: { width: 64, height: 64, marginBottom: 8 },
   brandName: { fontFamily: fonts.semiBold, fontSize: 18, color: colors.textSecondary, marginBottom: 4 },
   title: { ...typography.title, color: colors.text },
-  roleRow: { flexDirection: 'row', gap: 12, marginBottom: 16, marginTop: 8 },
-  roleBtn: { flex: 1 },
+  roleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    marginTop: 8,
+  },
   dateWrap: { marginBottom: 16 },
   dateLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.text, marginBottom: 6 },
   dateTouch: {

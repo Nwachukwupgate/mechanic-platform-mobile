@@ -1,10 +1,10 @@
 import { fonts } from './fonts'
 
 export const typography = {
-  display: { fontFamily: fonts.bold, fontSize: 28, letterSpacing: -0.6 },
-  title: { fontFamily: fonts.bold, fontSize: 24, letterSpacing: -0.4 },
-  titleSmall: { fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.2 },
-  section: { fontFamily: fonts.semiBold, fontSize: 18 },
+  display: { fontFamily: fonts.headingBold, fontSize: 28, letterSpacing: -0.6 },
+  title: { fontFamily: fonts.headingBold, fontSize: 24, letterSpacing: -0.4 },
+  titleSmall: { fontFamily: fonts.headingBold, fontSize: 20, letterSpacing: -0.2 },
+  section: { fontFamily: fonts.headingMedium, fontSize: 18 },
   body: { fontFamily: fonts.regular, fontSize: 16 },
   bodyStrong: { fontFamily: fonts.semiBold, fontSize: 16 },
   caption: { fontFamily: fonts.regular, fontSize: 14 },

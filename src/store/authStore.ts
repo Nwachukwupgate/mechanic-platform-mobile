@@ -1,9 +1,7 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { STORAGE_KEYS } from '../constants/storage'
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'https://mechanic.denicksenglobal.com'
+import { API_BASE_URL } from '../config/apiBaseUrl'
 
 export interface User {
   id: string
@@ -51,7 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user && token && (user.role === 'USER' || user.role === 'MECHANIC')) {
       const path =
         user.role === 'USER' ? '/users/me/push-token' : '/mechanics/me/push-token'
-      void fetch(`${API_URL}${path}`, {
+      void fetch(`${API_BASE_URL}${path}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -19,24 +19,41 @@ type Props = {
   variant?: 'primary' | 'secondary' | 'outline'
   loading?: boolean
   disabled?: boolean
+  /** Primary: size button to label + padding instead of stretching (e.g. role toggles in a row). */
+  hugContent?: boolean
   style?: ViewStyle
   textStyle?: TextStyle
 }
 
-export function Button({ title, onPress, variant = 'primary', loading, disabled, style, textStyle }: Props) {
+export function Button({
+  title,
+  onPress,
+  variant = 'primary',
+  loading,
+  disabled,
+  hugContent,
+  style,
+  textStyle,
+}: Props) {
   const isDisabled = disabled || loading
   if (variant === 'primary') {
+    const fill = !hugContent
     return (
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
-        style={({ pressed }) => [styles.primaryWrap, { opacity: isDisabled ? 0.65 : pressed ? 0.92 : 1 }, style]}
+        style={({ pressed }) => [
+          styles.primaryWrap,
+          hugContent && styles.primaryWrapHug,
+          { opacity: isDisabled ? 0.65 : pressed ? 0.92 : 1 },
+          style,
+        ]}
       >
         <LinearGradient
           colors={[...gradients.primaryButton]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.primaryGradient}
+          style={[styles.primaryGradient, fill && styles.primaryGradientFill]}
         >
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -93,12 +110,18 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
+  primaryWrapHug: {
+    alignSelf: 'flex-start',
+  },
   primaryGradient: {
     paddingVertical: 15,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
+  },
+  primaryGradientFill: {
+    width: '100%',
   },
   primaryText: {
     fontSize: 16,

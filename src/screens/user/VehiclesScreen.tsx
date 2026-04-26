@@ -94,15 +94,22 @@ export function VehiclesScreen({ navigation }: { navigation: any }) {
               >
                 <IconBadge name="car-sport" size={22} color={colors.primary[600]} backgroundColor={colors.primary[50]} style={styles.vehicleIcon} />
                 <View style={styles.vehicleInfo}>
-                  <Text style={styles.vehicle}>{item.brand} {item.model}</Text>
-                  <Text style={styles.meta}>
+                  <Text style={styles.vehicle} numberOfLines={2}>
+                    {item.brand} {item.model}
+                  </Text>
+                  <Text style={styles.meta} numberOfLines={3}>
                     {item.type} · {item.year}
                     {item.color ? ` · ${item.color}` : ''}
                     {item.licensePlate ? ` · ${item.licensePlate}` : ''}
                   </Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => deleteVehicle(item.id)} style={styles.deleteBtn}>
+              <TouchableOpacity
+                onPress={() => deleteVehicle(item.id)}
+                style={styles.deleteBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Remove vehicle"
+              >
                 <Ionicons name="trash-outline" size={22} color={colors.accent.red} />
               </TouchableOpacity>
             </View>
@@ -131,13 +138,13 @@ const styles = StyleSheet.create({
   addBtnIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary[50], alignItems: 'center', justifyContent: 'center' },
   addBtnText: { fontSize: 16, fontWeight: '600', color: colors.primary[600] },
   card: { marginBottom: 12 },
-  cardRow: { flexDirection: 'row', alignItems: 'center' },
-  cardMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  vehicleIcon: { width: 44, height: 44, borderRadius: 22 },
-  vehicleInfo: { marginLeft: 14 },
+  cardRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  cardMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', minWidth: 0 },
+  vehicleIcon: { width: 44, height: 44, borderRadius: 22, flexShrink: 0 },
+  vehicleInfo: { marginLeft: 14, flex: 1, minWidth: 0 },
   vehicle: { fontSize: 16, fontWeight: '600', color: colors.text },
-  meta: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
-  deleteBtn: { padding: 8 },
+  meta: { fontSize: 14, color: colors.textSecondary, marginTop: 4, lineHeight: 20 },
+  deleteBtn: { padding: 8, marginLeft: 8, flexShrink: 0, marginTop: 2 },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyIconWrap: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.neutral[100], alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 20 },

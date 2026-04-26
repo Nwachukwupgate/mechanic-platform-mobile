@@ -3,10 +3,14 @@ import { NavigationContainer } from '@react-navigation/native'
 import * as SplashScreen from 'expo-splash-screen'
 import {
   useFonts,
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-} from '@expo-google-fonts/plus-jakarta-sans'
+  Outfit_400Regular,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+} from '@expo-google-fonts/outfit'
+import {
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk'
 import { useAuthStore } from '../store/authStore'
 import { useSyncExpoPushToken } from '../hooks/useSyncExpoPushToken'
 import { hasCompletedOnboarding } from '../utils/onboarding'
@@ -19,9 +23,11 @@ SplashScreen.preventAutoHideAsync()
 
 export function RootNavigator() {
   const [fontsLoaded] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
+    Outfit_400Regular,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
   })
   const hydrated = useAuthStore((s) => s.hydrated)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)

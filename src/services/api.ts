@@ -1,14 +1,18 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, isAxiosError } from 'axios'
 import { useAuthStore } from '../store/authStore'
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  'https://mechanic.denicksenglobal.com'
+import { API_BASE_URL } from '../config/apiBaseUrl'
 
 export function getApiErrorMessage(
   error: unknown,
   fallback = 'Something went wrong. Please try again.'
 ): string {
+  if (isAxiosError(error) && !error.response) {
+    const code = error.code
+    if (code === 'ERR_NETWORK' || code === 'ECONNABORTED') {
+      return "We can't reach the server. Check your connection and try again."
+    }
+    return "We can't reach the server right now. Pull to refresh or try again in a moment."
+  }
   if (!error || typeof error !== 'object') return fallback
   const ax = error as AxiosError<{
     message?: string | string[]
@@ -46,7 +50,7 @@ export function isPropertyNotAllowedError(error: unknown, propertyName?: string)
 }
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -78,6 +82,27 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+export const notificationsAPI = {
+  list: (params?: { limit?: number; offset?: number }) =>
+    api.get<{
+      items: Array<{
+        id: string
+        type: string
+        title: string
+        body: string
+        data?: unknown
+        readAt: string | null
+        createdAt: string
+      }>
+      total: number
+      limit: number
+      offset: number
+    }>('/notifications', { params }),
+  unreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
 
 export const authAPI = {
   registerUser: (d: {
@@ -193,7 +218,7 @@ export const bookingsAPI = {
   findNearbyMechanics: (
     lat: number,
     lng: number,
-    faultCategory: string,
+    faultCategory?: string,
     radius?: number,
     vehicleId?: string,
     opts?: { minRating?: number; availableOnly?: boolean }
@@ -202,7 +227,9 @@ export const bookingsAPI = {
       params: {
         lat,
         lng,
-        faultCategory,
+        ...(faultCategory != null && faultCategory !== ''
+          ? { faultCategory }
+          : {}),
         radius,
         vehicleId,
         ...(opts?.minRating != null ? { minRating: opts.minRating } : {}),
@@ -295,6 +322,12 @@ export const walletAPI = {
     }>('/wallet/initialize-mechanic-fee-payment', body),
   verifyMechanicFeePayment: (reference: string) =>
     api.post<{ success: boolean }>('/wallet/verify-mechanic-fee-payment', { reference }),
+  /** Abandon a stuck Paystack fee checkout (server confirms Paystack did not succeed). */
+  cancelMechanicFeeCheckout: (reference: string) =>
+    api.post<{ success: boolean; outcome: 'cancelled' | 'finalized' }>(
+      '/wallet/cancel-mechanic-fee-checkout',
+      { reference },
+    ),
   getTransactions: (params?: {
     type?: string
     limit?: number
@@ -333,9 +366,31 @@ export const walletAPI = {
         totalPayoutsMinor?: number
         totalFeeOwedMinor?: number
         totalFeePaidMinor?: number
+        pendingWithdrawalsMinor?: number
         currency: string
       }
       recentTransactions: any[]
+      pendingWithdrawals?: Array<{
+        id: string
+        amountMinor: number
+        amountNaira: number
+        reference: string | null
+        description: string | null
+        createdAt: string
+        feeChargedMinor?: number
+        feeChargedNaira?: number
+      }>
+      pendingPlatformFeeCheckouts?: Array<{
+        id: string
+        amountMinor: number
+        amountNaira: number
+        internalReference: string | null
+        paystackReference: string | null
+        authorizationUrl: string
+        createdAt: string
+        bookingId: string | null
+        description: string | null
+      }>
     }>('/wallet/summary'),
   getTransaction: (id: string) => api.get(`/wallet/transactions/${id}`),
   /** Manual fee log (e.g. bank transfer) — no in-app UI; kept for API parity / tooling. */
@@ -344,5 +399,18 @@ export const walletAPI = {
     bookingId?: string
     note?: string
   }) => api.post('/wallet/record-fee-payment', body),
-  withdraw: (amountMinor: number) => api.post('/wallet/withdraw', { amountMinor }),
+  withdraw: (amountMinor: number) =>
+    api.post<{
+      success: boolean
+      transferStatus: 'completed' | 'processing'
+      id: string
+      amountMinor: number
+      amountNaira: number
+      destinationBank: string
+      destinationAccountLast4: string
+      reference: string | null
+      paystackTransferStatus: string
+      feeChargedMinor: number | null
+      feeChargedNaira: number | null
+    }>('/wallet/withdraw', { amountMinor }),
 }

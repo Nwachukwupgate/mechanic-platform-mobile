@@ -60,13 +60,13 @@ export function LoginScreen({ navigation }: { navigation: any }) {
               title="User"
               onPress={() => { setRole('USER'); setError('') }}
               variant={role === 'USER' ? 'primary' : 'outline'}
-              style={styles.roleBtn}
+              hugContent={role === 'USER'}
             />
             <Button
               title="Mechanic"
               onPress={() => { setRole('MECHANIC'); setError('') }}
               variant={role === 'MECHANIC' ? 'primary' : 'outline'}
-              style={styles.roleBtn}
+              hugContent={role === 'MECHANIC'}
             />
           </View>
           <Input
@@ -108,8 +108,14 @@ const styles = StyleSheet.create({
   logo: { width: 80, height: 80, marginBottom: 8 },
   title: { ...typography.title, color: colors.text },
   subtitle: { ...typography.body, color: colors.textSecondary, marginTop: 6 },
-  roleRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
-  roleBtn: { flex: 1 },
+  roleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
   errText: { color: colors.accent.red, fontSize: 14, marginBottom: 12 },
   registerBtn: { marginTop: 16 },
 })

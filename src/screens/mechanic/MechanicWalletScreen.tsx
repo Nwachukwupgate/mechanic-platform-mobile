@@ -43,14 +43,39 @@ type WalletSummaryBalance = {
   currency: string
 }
 
+type PendingPlatformFeeCheckout = {
+  id: string
+  amountMinor: number
+  amountNaira: number
+  internalReference: string | null
+  paystackReference: string | null
+  authorizationUrl: string
+  createdAt: string
+  bookingId: string | null
+  description: string | null
+}
+
+type PendingWithdrawal = {
+  id: string
+  amountMinor: number
+  amountNaira: number
+  reference: string | null
+  description: string | null
+  createdAt: string
+  feeChargedMinor?: number
+  feeChargedNaira?: number
+}
+
 export function MechanicWalletScreen() {
   const navigation = useNavigation()
   const initialLoadDone = useRef(false)
   const pendingFeePaystackRef = useRef<string | null>(null)
   const verifyingFeePaystackRef = useRef(false)
   const [summary, setSummary] = useState<{
-    balance: WalletSummaryBalance
+    balance: WalletSummaryBalance & { pendingWithdrawalsMinor?: number }
     recentTransactions: any[]
+    pendingPlatformFeeCheckouts?: PendingPlatformFeeCheckout[]
+    pendingWithdrawals?: PendingWithdrawal[]
   } | null>(null)
   const [transactions, setTransactions] = useState<any[]>([])
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
@@ -70,6 +95,7 @@ export function MechanicWalletScreen() {
   const [payingPlatformFee, setPayingPlatformFee] = useState(false)
   const [paystackFeeUrl, setPaystackFeeUrl] = useState<string | null>(null)
   const [paystackFeeRef, setPaystackFeeRef] = useState<string | null>(null)
+  const [cancellingCheckoutId, setCancellingCheckoutId] = useState<string | null>(null)
 
   const loadData = () => {
     return Promise.all([
@@ -118,6 +144,17 @@ export function MechanicWalletScreen() {
     })
     return () => sub.remove()
   }, [tryVerifyMechanicFeePayment])
+
+  /** So returning mechanics still get auto-verify after paying, even if the WebView was cleared. */
+  useEffect(() => {
+    const pendings = summary?.pendingPlatformFeeCheckouts
+    if (pendings?.length && pendings[0].paystackReference) {
+      pendingFeePaystackRef.current = pendings[0].paystackReference
+    }
+    if (!pendings?.length && !paystackFeeUrl) {
+      pendingFeePaystackRef.current = null
+    }
+  }, [summary?.pendingPlatformFeeCheckouts, paystackFeeUrl])
 
   useFocusEffect(
     useCallback(() => {
@@ -225,24 +262,43 @@ export function MechanicWalletScreen() {
   const availableMinor = bal?.availableToWithdrawMinor ?? 0
   const unpaidFeeMinor = bal?.unpaidPlatformFeeMinor ?? 0
   const unpaidFeeNairaDisplay = unpaidFeeMinor / 100
+  const pendingFeeCheckouts = summary?.pendingPlatformFeeCheckouts ?? []
+  const pendingFeeReservedMinor = pendingFeeCheckouts.reduce((s, p) => s + (p.amountMinor ?? 0), 0)
+  /** Full-balance Paystack init is blocked while any pending checkout holds capacity. */
+  const blockedByPendingCheckout = pendingFeeReservedMinor > 0
+  const pendingWithdrawals = summary?.pendingWithdrawals ?? []
+  const defaultBank = bankAccounts.find((a) => a.isDefault)
 
-  const handleWithdraw = async () => {
-    const naira = parseFloat(withdrawAmount)
-    if (!Number.isFinite(naira) || naira < 1) {
-      Alert.alert('Error', 'Enter a valid amount (min ₦1)')
-      return
-    }
-    const amountMinor = Math.round(naira * 100)
-    if (amountMinor > availableMinor) {
-      Alert.alert('Error', 'Amount exceeds withdrawable balance (platform-paid earnings)')
-      return
-    }
+  const runWithdraw = async (amountMinor: number, displayNaira: number) => {
     setWithdrawing(true)
     try {
-      await walletAPI.withdraw(amountMinor)
+      const res = await walletAPI.withdraw(amountMinor)
+      const d = res.data
       setWithdrawAmount('')
-      loadData()
-      Alert.alert('Success', `₦${naira.toLocaleString()} sent to your bank account`)
+      await loadData()
+      const dest =
+        d?.destinationBank && d?.destinationAccountLast4
+          ? `${d.destinationBank} · ****${d.destinationAccountLast4}`
+          : 'your default bank account'
+      const refLine = d?.reference ? `\nReference: ${d.reference}` : ''
+      const feeMinor = d?.feeChargedMinor
+      const feeLine =
+        typeof feeMinor === 'number' && feeMinor > 0
+          ? `\nPaystack transfer fee (charged to the platform): ₦${(feeMinor / 100).toLocaleString()}`
+          : ''
+
+      if (d?.transferStatus === 'processing') {
+        Alert.alert(
+          'Withdrawal processing',
+          `₦${displayNaira.toLocaleString(undefined, { maximumFractionDigits: 2 })} is queued to ${dest}.${refLine}\n\nPaystack is moving the funds; this usually finishes within a few minutes. Your wallet updates automatically when they confirm success (or releases the hold if it fails). Pull to refresh on this screen to check status.`,
+        )
+        return
+      }
+
+      Alert.alert(
+        'Withdrawal completed',
+        `₦${displayNaira.toLocaleString(undefined, { maximumFractionDigits: 2 })} was sent to ${dest}.${refLine}${feeLine}\n\nYou will see this in your transaction history.`,
+      )
     } catch (e: any) {
       Alert.alert('Withdrawal failed', getApiErrorMessage(e, 'Could not complete withdrawal'))
     } finally {
@@ -250,9 +306,116 @@ export function MechanicWalletScreen() {
     }
   }
 
+  const handleWithdraw = () => {
+    const naira = parseFloat(withdrawAmount)
+    if (!Number.isFinite(naira) || naira < 1) {
+      Alert.alert('Error', 'Enter a valid amount (min ₦1)')
+      return
+    }
+    const amountMinor = Math.round(naira * 100)
+    if (amountMinor < 100) {
+      Alert.alert('Error', 'Minimum withdrawal is ₦1')
+      return
+    }
+    if (amountMinor > availableMinor) {
+      Alert.alert('Error', 'Amount exceeds withdrawable balance (platform-paid earnings)')
+      return
+    }
+    if (!defaultBank) {
+      Alert.alert('Add a bank account', 'Set a default withdrawal account below before withdrawing.')
+      return
+    }
+    const masked = `${defaultBank.bankName} · ****${defaultBank.accountNumber.slice(-4)}`
+    Alert.alert(
+      'Confirm withdrawal',
+      `Send ₦${naira.toLocaleString(undefined, { maximumFractionDigits: 2 })} to ${masked}?`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: () => void runWithdraw(amountMinor, naira),
+        },
+      ],
+    )
+  }
+
+  const setWithdrawAmountAll = () => {
+    if (availableMinor < 100) return
+    const n = availableMinor / 100
+    setWithdrawAmount(Number.isInteger(n) ? String(n) : n.toFixed(2))
+  }
+
+  const setWithdrawAmountHalf = () => {
+    if (availableMinor < 200) return
+    const halfMinor = Math.floor(availableMinor / 2)
+    const n = halfMinor / 100
+    setWithdrawAmount(Number.isInteger(n) ? String(n) : n.toFixed(2))
+  }
+
+  const openContinuePlatformFeeCheckout = (p: PendingPlatformFeeCheckout) => {
+    const ref = p.paystackReference?.trim()
+    if (!ref) {
+      Alert.alert('Cannot continue', 'This checkout has no payment reference. Try cancelling it and starting again.')
+      return
+    }
+    if (!p.authorizationUrl?.trim()) {
+      Alert.alert(
+        'Cannot reopen checkout',
+        'The payment link for this session is missing. Cancel this checkout, then start a new payment.',
+      )
+      return
+    }
+    pendingFeePaystackRef.current = ref
+    setPaystackFeeUrl(p.authorizationUrl.trim())
+    setPaystackFeeRef(ref)
+  }
+
+  const confirmCancelPlatformFeeCheckout = (p: PendingPlatformFeeCheckout) => {
+    const ref = (p.paystackReference ?? p.internalReference ?? '').trim()
+    if (!ref) {
+      Alert.alert('Cannot cancel', 'Missing checkout reference. Contact support if this persists.')
+      return
+    }
+    Alert.alert(
+      'Cancel checkout?',
+      'Only cancel if you did not complete payment on Paystack. If you already paid, choose Continue or wait a moment—we will detect the payment automatically.',
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel checkout',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingCheckoutId(p.id)
+            try {
+              const r = await walletAPI.cancelMechanicFeeCheckout(ref)
+              if (r.data?.outcome === 'finalized') {
+                await loadData()
+                Alert.alert('Payment found', 'Your payment went through. Your wallet is updated.')
+              } else {
+                await loadData()
+                Alert.alert('Checkout cleared', 'You can start a new card payment when you are ready.')
+              }
+            } catch (e: any) {
+              Alert.alert('Could not cancel', getApiErrorMessage(e, 'Try again in a moment.'))
+            } finally {
+              setCancellingCheckoutId(null)
+            }
+          },
+        },
+      ],
+    )
+  }
+
   const handlePayPlatformFee = async () => {
     if (unpaidFeeMinor < 100) {
       Alert.alert('Nothing to pay', 'You have no platform fee balance due right now.')
+      return
+    }
+    if (blockedByPendingCheckout) {
+      Alert.alert(
+        'Finish or cancel your pending checkout',
+        'You already started a card payment. Use Continue payment below, or cancel that checkout to start a new one.',
+      )
       return
     }
     setPayingPlatformFee(true)
@@ -350,10 +513,52 @@ export function MechanicWalletScreen() {
           <View style={styles.sectionTitleWrap}>
             <Text style={styles.sectionTitle}>Withdraw to bank</Text>
             <Text style={styles.sectionSubtitle}>
-              From platform-paid jobs only (your 80% share after our 20% fee)
+              From platform-paid jobs only (your 80% share after our 20% fee). Money is sent with Paystack to your
+              default account.
             </Text>
           </View>
         </View>
+        {defaultBank ? (
+          <View style={styles.withdrawDestination}>
+            <Ionicons name="business-outline" size={18} color={colors.primary[600]} />
+            <Text style={styles.withdrawDestinationText}>
+              Sending to <Text style={styles.withdrawDestinationStrong}>{defaultBank.bankName}</Text> · ****
+              {defaultBank.accountNumber.slice(-4)} ({defaultBank.accountName})
+            </Text>
+          </View>
+        ) : bankAccounts.length > 0 ? (
+          <Text style={styles.withdrawWarning}>Choose a default account below to enable withdrawals.</Text>
+        ) : (
+          <Text style={styles.withdrawWarning}>Add a bank account below to withdraw earnings.</Text>
+        )}
+        {pendingWithdrawals.length > 0 ? (
+          <View style={styles.withdrawPendingBanner}>
+            <Ionicons name="sync-outline" size={18} color={colors.primary[700]} />
+            <Text style={styles.withdrawPendingText}>
+              {pendingWithdrawals.length === 1
+                ? 'One withdrawal is still being finalized with Paystack. Your available balance already excludes that amount; it will clear when we receive success or failure from Paystack.'
+                : `${pendingWithdrawals.length} withdrawals are still being finalized with Paystack. Your available balance already excludes those amounts.`}
+            </Text>
+          </View>
+        ) : null}
+        <Text style={styles.withdrawFeeNote}>
+          Paystack may charge the platform a small transfer fee depending on your plan; the amount you enter is what we
+          send to your bank before any provider-side fees.
+        </Text>
+        <Text style={styles.withdrawAvailableLabel}>
+          Available to withdraw:{' '}
+          <Text style={styles.withdrawAvailableAmount}>₦{(availableMinor / 100).toLocaleString()}</Text>
+        </Text>
+        {availableMinor >= 100 ? (
+          <View style={styles.quickWithdrawRow}>
+            <TouchableOpacity style={styles.quickWithdrawChip} onPress={setWithdrawAmountAll} activeOpacity={0.7}>
+              <Text style={styles.quickWithdrawChipText}>Withdraw all</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickWithdrawChip} onPress={setWithdrawAmountHalf} activeOpacity={0.7}>
+              <Text style={styles.quickWithdrawChipText}>Half</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <Input
           label="Amount (₦)"
           value={withdrawAmount}
@@ -365,12 +570,59 @@ export function MechanicWalletScreen() {
           title={withdrawing ? 'Sending…' : 'Withdraw'}
           onPress={handleWithdraw}
           loading={withdrawing}
-          disabled={availableMinor < 100}
+          disabled={availableMinor < 100 || !defaultBank}
         />
         {availableMinor < 100 && (
           <Text style={styles.emptyText}>No withdrawable balance yet, or amount below minimum.</Text>
         )}
       </Card>
+
+      {/* Pending Paystack checkouts — resume or cancel */}
+      {pendingFeeCheckouts.length > 0 ? (
+        <Card style={styles.pendingCheckoutSection}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.accent.amber + '30' }]}>
+              <Ionicons name="time-outline" size={24} color={colors.accent.amber} />
+            </View>
+            <View style={styles.sectionTitleWrap}>
+              <Text style={styles.sectionTitle}>Payment in progress</Text>
+              <Text style={styles.sectionSubtitle}>
+                You opened Paystack but did not finish. Continue the same session (same amount), or cancel it to start a
+                new card payment.
+              </Text>
+            </View>
+          </View>
+          {pendingFeeCheckouts.map((p) => (
+            <View key={p.id} style={styles.pendingCheckoutRow}>
+              <View style={styles.pendingCheckoutMeta}>
+                <Text style={styles.pendingCheckoutAmount}>₦{(p.amountNaira ?? p.amountMinor / 100).toLocaleString()}</Text>
+                <Text style={styles.pendingCheckoutDate}>
+                  Started{' '}
+                  {new Date(p.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                </Text>
+                {p.description ? <Text style={styles.pendingCheckoutNote}>{p.description}</Text> : null}
+              </View>
+              <Button
+                title="Continue payment"
+                onPress={() => openContinuePlatformFeeCheckout(p)}
+                disabled={
+                  cancellingCheckoutId !== null ||
+                  !p.authorizationUrl?.trim() ||
+                  !p.paystackReference
+                }
+              />
+              <Button
+                title={cancellingCheckoutId === p.id ? 'Cancelling…' : 'Cancel checkout'}
+                variant="outline"
+                onPress={() => confirmCancelPlatformFeeCheckout(p)}
+                loading={cancellingCheckoutId === p.id}
+                disabled={cancellingCheckoutId !== null}
+                style={styles.pendingCheckoutSecondBtn}
+              />
+            </View>
+          ))}
+        </Card>
+      ) : null}
 
       {/* Pay platform fee (full owed balance only) — Paystack */}
       {unpaidFeeMinor >= 100 ? (
@@ -390,10 +642,17 @@ export function MechanicWalletScreen() {
           <Text style={styles.feeOwedLine}>
             Amount due: <Text style={styles.feeOwedAmount}>₦{unpaidFeeNairaDisplay.toLocaleString()}</Text>
           </Text>
+          {blockedByPendingCheckout ? (
+            <Text style={styles.pendingBlocksPayHint}>
+              A checkout above is holding this payment slot. Continue that session or cancel it to pay the full balance
+              here.
+            </Text>
+          ) : null}
           <Button
             title={payingPlatformFee ? 'Starting…' : `Pay ₦${unpaidFeeNairaDisplay.toLocaleString()} with card`}
             onPress={handlePayPlatformFee}
             loading={payingPlatformFee}
+            disabled={blockedByPendingCheckout}
           />
         </Card>
       ) : null}
@@ -428,6 +687,11 @@ export function MechanicWalletScreen() {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     })}
+                    {t.type === 'MECHANIC_FEE' && t.status === 'PENDING'
+                      ? ' · Pending payment'
+                      : t.type === 'PLATFORM_PAYOUT' && t.status === 'PENDING'
+                        ? ' · Processing'
+                        : ''}
                   </Text>
                 </View>
                 <View style={styles.txRight}>
@@ -667,6 +931,74 @@ const styles = StyleSheet.create({
   sectionSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   feeOwedLine: { fontSize: 15, color: colors.textSecondary, marginBottom: 14 },
   feeOwedAmount: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
+  pendingCheckoutSection: {
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.accent.amber + '55',
+    backgroundColor: colors.accent.amber + '0c',
+  },
+  pendingCheckoutRow: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+  },
+  pendingCheckoutMeta: { marginBottom: 12 },
+  pendingCheckoutAmount: { fontSize: 20, fontWeight: '800', color: colors.text },
+  pendingCheckoutDate: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  pendingCheckoutNote: { fontSize: 12, color: colors.neutral[600], marginTop: 6, lineHeight: 17 },
+  pendingCheckoutSecondBtn: { marginTop: 10 },
+  pendingBlocksPayHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 19,
+  },
+  withdrawDestination: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: colors.primary[50],
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  withdrawDestinationText: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+  withdrawDestinationStrong: { fontWeight: '700', color: colors.text },
+  withdrawWarning: {
+    fontSize: 13,
+    color: colors.accent.amber,
+    marginBottom: 12,
+    lineHeight: 19,
+  },
+  withdrawPendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: colors.primary[100],
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  withdrawPendingText: { flex: 1, fontSize: 13, color: colors.primary[900], lineHeight: 19 },
+  withdrawFeeNote: {
+    fontSize: 12,
+    color: colors.neutral[600],
+    marginBottom: 10,
+    lineHeight: 17,
+  },
+  withdrawAvailableLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
+  withdrawAvailableAmount: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
+  quickWithdrawRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  quickWithdrawChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: colors.neutral[100],
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+  },
+  quickWithdrawChipText: { fontSize: 14, fontWeight: '600', color: colors.primary[700] },
   addBtn: { alignSelf: 'flex-start' },
   addForm: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.neutral[200], gap: 0 },
   pickerTouch: {
