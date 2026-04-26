@@ -146,15 +146,15 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
         <Text style={styles.heroName}>
           {[profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Your profile'}
         </Text>
-        <Text style={styles.heroEmail}>{profile?.email || '—'}</Text>
+        <Text style={styles.heroEmail}>{profile?.email || '…'}</Text>
         <View style={styles.statsRow}>
           <View style={styles.statCell}>
-            <Text style={styles.statVal}>{stats?.totalBookings != null ? String(stats.totalBookings) : '—'}</Text>
+            <Text style={styles.statVal}>{stats?.totalBookings != null ? String(stats.totalBookings) : '…'}</Text>
             <Text style={styles.statLbl}>Bookings</Text>
           </View>
           <View style={styles.statSep} />
           <View style={styles.statCell}>
-            <Text style={styles.statVal}>{stats?.completedBookings != null ? String(stats.completedBookings) : '—'}</Text>
+            <Text style={styles.statVal}>{stats?.completedBookings != null ? String(stats.completedBookings) : '…'}</Text>
             <Text style={styles.statLbl}>Completed</Text>
           </View>
         </View>
@@ -177,15 +177,15 @@ export function ProfileScreen({ navigation }: { navigation: any }) {
           <View style={styles.readOnlyBlock}>
             <View style={styles.readOnlyRow}>
               <Text style={styles.readOnlyLabel}>First name</Text>
-              <Text style={styles.readOnlyValue}>{profile?.firstName || '—'}</Text>
+              <Text style={styles.readOnlyValue}>{profile?.firstName || '…'}</Text>
             </View>
             <View style={styles.readOnlyRow}>
               <Text style={styles.readOnlyLabel}>Last name</Text>
-              <Text style={styles.readOnlyValue}>{profile?.lastName || '—'}</Text>
+              <Text style={styles.readOnlyValue}>{profile?.lastName || '…'}</Text>
             </View>
             <View style={[styles.readOnlyRow, styles.readOnlyRowLast]}>
               <Text style={styles.readOnlyLabel}>Email</Text>
-              <Text style={styles.readOnlyValue}>{profile?.email || '—'}</Text>
+              <Text style={styles.readOnlyValue}>{profile?.email || '…'}</Text>
             </View>
           </View>
         </CollapsibleProfileSection>

@@ -237,7 +237,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
     } catch (e: any) {
       Alert.alert(
         'Photos',
-        getApiErrorMessage(e, 'Booking created but photos failed — add them from the booking page.')
+        getApiErrorMessage(e, 'Booking created but photos failed. Add them from the booking page.')
       )
     }
   }

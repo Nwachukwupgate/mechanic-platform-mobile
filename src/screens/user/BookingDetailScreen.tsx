@@ -27,14 +27,16 @@ import {
 } from '../../services/api'
 import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } from '../../services/socket'
 import { colors } from '../../theme/colors'
+import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
-import { BookingProgressBar } from '../../components/BookingProgressBar'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { BookingChat } from '../../components/BookingChat'
-import { CollapsibleProfileSection } from '../../components/CollapsibleProfileSection'
 import { PaystackCheckoutModal } from '../../components/PaystackCheckoutModal'
+import { BookingDetailAccordion } from '../../components/bookingDetail/BookingDetailAccordion'
+import { BookingDetailProgressSteps } from '../../components/bookingDetail/BookingDetailProgressSteps'
+import { BookingHeroDecor } from '../../components/bookingDetail/BookingHeroDecor'
 
 const PAYMENT_STATUSES = ['ACCEPTED', 'IN_PROGRESS', 'DONE']
 const MAX_BOOKING_PHOTOS = 3
@@ -48,7 +50,10 @@ const REPORT_REASONS = [
 ] as const
 
 export function BookingDetailScreen({ route, navigation }: { route: any; navigation: any }) {
-  const { id } = route.params
+  const id =
+    route?.params != null && route.params.id != null && route.params.id !== ''
+      ? String(route.params.id)
+      : ''
   const insets = useSafeAreaInsets()
   const pendingPaystackRef = useRef<string | null>(null)
   const verifyingPaystackRef = useRef(false)
@@ -114,6 +119,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   }, [])
 
   const load = useCallback(async () => {
+    if (!id) {
+      setBooking(null)
+      setQuotes([])
+      setLoading(false)
+      return
+    }
     try {
       const [bookingRes, quotesRes] = await Promise.all([
         bookingsAPI.getById(id),
@@ -157,7 +168,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
         Alert.alert('Payment successful', 'Your booking is marked as paid.')
       }
     } catch {
-      // Still pending, cancelled, or network error — keep pending ref for retry on next focus
+      // Still pending, cancelled, or network error; keep pending ref for retry on next focus
     } finally {
       verifyingPaystackRef.current = false
     }
@@ -429,10 +440,19 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     return { kind: 'none' as const }
   }, [booking, quotes, showRating, ratingSkipped, publicFlags])
 
+  if (!id) {
+    return (
+      <View style={[styles.container, styles.missingIdWrap]}>
+        <Text style={styles.missingIdText}>This booking could not be opened.</Text>
+        <Button title="Go back" onPress={() => navigation.goBack()} />
+      </View>
+    )
+  }
+
   if (loading || !booking) return <LoadingOverlay />
 
-  const messages = booking.messages || []
-  const clarifications = booking.clarifications || []
+  const messages = Array.isArray(booking.messages) ? booking.messages : []
+  const clarifications = Array.isArray(booking.clarifications) ? booking.clarifications : []
   const pendingQuotes = quotes.filter((q: any) => q.status === 'PENDING')
   const chatReleased = booking.mechanicId && booking.status !== 'REQUESTED'
   const canPay =
@@ -451,8 +471,15 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     Boolean(booking.paidAt) ||
     booking.status === 'PAID' ||
     booking.status === 'DELIVERED'
+  const paidDisplayAmount =
+    booking.paidAmount != null
+      ? Number(booking.paidAmount)
+      : booking.estimatedCost != null
+        ? Number(booking.estimatedCost)
+        : null
 
   const bookingStatusBadge = bookingStatusBadgeColors(booking.status)
+  const mechPhone = mechanicPhone(booking.mechanic)
 
   const stickyPad =
     primaryBar.kind === 'none'
@@ -464,40 +491,90 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: stickyPad }]}>
-        <Card style={styles.mainCard}>
-          <View style={styles.heroBlock}>
-            <Text style={styles.vehicle}>
-              {booking.vehicle?.brand} {booking.vehicle?.model}
-            </Text>
-            <Text style={styles.fault}>{booking.fault?.name}</Text>
-            <View style={[styles.statusChip, { backgroundColor: bookingStatusBadge.bg }]}>
-              <Text style={[styles.statusChipText, { color: bookingStatusBadge.fg }]}>
-                {bookingStatusLabel(booking.status)}
-              </Text>
-            </View>
-            <BookingProgressBar status={booking.status} />
-            {booking.estimatedCost != null && (
-              <Text style={styles.cost}>Est. ₦{Number(booking.estimatedCost).toLocaleString()}</Text>
-            )}
-            {booking.mechanic && (
-              <Text style={styles.mech}>
-                {booking.mechanic.companyName} · {booking.mechanic.ownerFullName}
-              </Text>
-            )}
-            {showReceipt && (
-              <TouchableOpacity
-                style={styles.receiptLink}
-                onPress={() => navigation.navigate('BookingReceipt', { id: booking.id })}
-              >
-                <Ionicons name="receipt-outline" size={18} color={colors.primary[600]} />
-                <Text style={styles.receiptLinkText}>View payment summary / receipt</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        <View style={styles.heroCard}>
+          <View style={styles.heroForest}>
+            <BookingHeroDecor />
+            <View style={styles.heroForestPad}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroLeft}>
+                  <Text style={styles.heroVehicle}>
+                    {booking.vehicle?.brand} {booking.vehicle?.model}
+                  </Text>
+                  <Text style={styles.heroFault}>{booking.fault?.name}</Text>
+                  <View style={[styles.statusChip, { backgroundColor: bookingStatusBadge.bg }]}>
+                    <Text style={[styles.statusChipText, { color: bookingStatusBadge.fg }]}>
+                      {bookingStatusLabel(booking.status)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.heroRight}>
+                  {showReceipt && paidDisplayAmount != null ? (
+                    <>
+                      <Text style={styles.heroMoneyLabel}>TOTAL PAID</Text>
+                      <Text style={styles.heroMoneyValue}>
+                        ₦{paidDisplayAmount.toLocaleString()}
+                      </Text>
+                    </>
+                  ) : booking.estimatedCost != null && !showReceipt ? (
+                    <>
+                      <Text style={styles.heroMoneyLabel}>ESTIMATE</Text>
+                      <Text style={styles.heroMoneyValueMuted}>
+                        ₦{Number(booking.estimatedCost).toLocaleString()}
+                      </Text>
+                    </>
+                  ) : null}
+                </View>
+              </View>
 
-          <CollapsibleProfileSection
+              {booking.mechanic ? (
+                <View style={styles.mechRow}>
+                  <View style={styles.mechAvatar}>
+                    <Text style={styles.mechAvatarText}>{mechanicInitials(booking.mechanic)}</Text>
+                  </View>
+                  <View style={styles.mechMeta}>
+                    <Text style={styles.mechCompany} numberOfLines={1}>
+                      {booking.mechanic.companyName}
+                    </Text>
+                    <Text style={styles.mechSub} numberOfLines={2}>
+                      {booking.mechanic.ownerFullName}, your assigned mechanic
+                    </Text>
+                  </View>
+                  {mechPhone ? (
+                    <TouchableOpacity
+                      style={styles.callPill}
+                      onPress={() => Linking.openURL(`tel:${mechPhone.replace(/\s/g, '')}`)}
+                      accessibilityLabel="Call mechanic"
+                    >
+                      <Ionicons name="call" size={16} color={colors.primary[600]} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.heroNoMech}>
+                  When a mechanic sends a quote and you accept it, their details will show here.
+                </Text>
+              )}
+            </View>
+          </View>
+          <BookingDetailProgressSteps status={booking.status} role="user" />
+          {showReceipt ? (
+            <TouchableOpacity
+              style={styles.receiptRow}
+              onPress={() => navigation.navigate('BookingReceipt', { id: booking.id })}
+            >
+              <Ionicons name="receipt-outline" size={18} color={colors.primary[600]} />
+              <Text style={styles.receiptRowText}>View payment summary and receipt</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.neutral[400]} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        <>
+          <BookingDetailAccordion
             title="Job details"
+            subtitle="What you told mechanics: description and photos"
             icon="document-text-outline"
+            iconVariant="green"
             expanded={jobDetailsExpanded}
             onToggle={() => setJobDetailsExpanded((v) => !v)}
           >
@@ -566,12 +643,14 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                 </TouchableOpacity>
               </>
             )}
-          </CollapsibleProfileSection>
+          </BookingDetailAccordion>
 
           {booking.status === 'REQUESTED' && (
-            <CollapsibleProfileSection
+            <BookingDetailAccordion
               title="Quotes & pricing"
+              subtitle="Review prices and messages, then accept the quote you prefer"
               icon="pricetags-outline"
+              iconVariant="amber"
               expanded={quotesExpanded}
               onToggle={() => setQuotesExpanded((v) => !v)}
               badge={pendingQuotes.length > 0 ? String(pendingQuotes.length) : undefined}
@@ -623,13 +702,15 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   ))}
                 </>
               )}
-            </CollapsibleProfileSection>
+            </BookingDetailAccordion>
           )}
 
           {clarifications.length > 0 && (
-            <CollapsibleProfileSection
-              title="Q&A"
+            <BookingDetailAccordion
+              title="Questions & answers"
+              subtitle="Mechanic questions about the job. Reply so they can quote accurately"
               icon="help-circle-outline"
+              iconVariant="blue"
               expanded={qaExpanded}
               onToggle={() => setQaExpanded((v) => !v)}
               badge={
@@ -667,7 +748,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   </View>
                 </View>
               ))}
-            </CollapsibleProfileSection>
+            </BookingDetailAccordion>
           )}
 
           {canPay && !paymentsEnabled && (
@@ -677,14 +758,17 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           )}
 
           {booking.status !== 'EXPIRED' && (
-            <CollapsibleProfileSection
+            <BookingDetailAccordion
               title="Safety & support"
+              subtitle="Protection, payments, and how to get help with this job"
               icon="shield-checkmark-outline"
+              iconVariant="blue"
               expanded={safetyExpanded}
               onToggle={() => setSafetyExpanded((v) => !v)}
             >
               <Text style={styles.safetyHint}>
-                Report problems with this job. For payment or quality issues, open a dispute.
+                Use report for behaviour or safety concerns. Use dispute for payment or work quality
+                issues. You can block a mechanic if you no longer want them to contact you.
               </Text>
               <View style={styles.safetyActions}>
                 <Button title="Report" variant="outline" onPress={() => setReportOpen(true)} />
@@ -703,13 +787,15 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               {booking.disputeReason ? (
                 <Text style={styles.disputeNote}>Dispute recorded: {booking.disputeReason}</Text>
               ) : null}
-            </CollapsibleProfileSection>
+            </BookingDetailAccordion>
           )}
 
           {hasLocation && (
-            <CollapsibleProfileSection
+            <BookingDetailAccordion
               title="Job location"
+              subtitle="Where the work happens. Open in Maps when you are ready to go"
               icon="location-outline"
+              iconVariant="green"
               expanded={locationExpanded}
               onToggle={() => setLocationExpanded((v) => !v)}
             >
@@ -722,13 +808,20 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   <Text style={styles.mapLinkText}>Open in Maps</Text>
                 </TouchableOpacity>
               </View>
-            </CollapsibleProfileSection>
+            </BookingDetailAccordion>
           )}
-        </Card>
+        </>
 
-        <CollapsibleProfileSection
-          title="Chat"
+        <View style={styles.chatSectionWrap}>
+        <BookingDetailAccordion
+          title="Messages"
+          subtitle={
+            chatReleased
+              ? 'Chat with your mechanic: updates, photos, and quick questions'
+              : 'Messaging unlocks after you accept a quote for this booking'
+          }
           icon="chatbubbles-outline"
+          iconVariant="green"
           expanded={chatExpanded}
           onToggle={() => setChatExpanded((v) => !v)}
         >
@@ -739,16 +832,17 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               onMessagesChange={(next) => setBooking((b: any) => (b ? { ...b, messages: next } : b))}
             />
           ) : (
-            <Card style={styles.chatPlaceholder}>
+            <View style={styles.chatPlaceholder}>
               <Text style={styles.chatPlaceholderTitle}>Chat after you accept a quote</Text>
               <Text style={styles.chatPlaceholderText}>
                 {booking.mechanicId
-                  ? 'Accept the mechanic’s quote above to start messaging about this job.'
-                  : 'Accept one of the quotes above to message your chosen mechanic.'}
+                  ? 'Accept this mechanic’s quote under Quotes & pricing to confirm the job and open chat.'
+                  : 'Accept one of the quotes above to confirm the job and message your mechanic.'}
               </Text>
-            </Card>
+            </View>
           )}
-        </CollapsibleProfileSection>
+        </BookingDetailAccordion>
+        </View>
       </ScrollView>
 
       {primaryBar.kind !== 'none' && (
@@ -788,7 +882,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
           )}
           {primaryBar.kind === 'quote' && (
             <Button
-              title={`Accept quote · ₦${primaryBar.price.toLocaleString()}`}
+              title={`Accept quote: ₦${primaryBar.price.toLocaleString()}`}
               onPress={() => acceptQuote(primaryBar.quoteId)}
               loading={acceptingQuoteId === primaryBar.quoteId}
               style={styles.stickyPrimaryBtn}
@@ -912,6 +1006,31 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   )
 }
 
+function mechanicInitials(m: any): string {
+  const owner = typeof m?.ownerFullName === 'string' ? m.ownerFullName.trim() : ''
+  if (owner) {
+    const parts = owner.split(/\s+/).filter(Boolean)
+    const a = parts[0]?.[0] ?? ''
+    const b = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : ''
+    const s = (a + b).toUpperCase()
+    if (s) return s
+  }
+  const co = typeof m?.companyName === 'string' ? m.companyName.trim().slice(0, 2) : ''
+  return co.toUpperCase() || '?'
+}
+
+function mechanicPhone(m: any): string | undefined {
+  if (!m || typeof m !== 'object') return undefined
+  const raw =
+    m.phone ??
+    m.phoneNumber ??
+    m.mobile ??
+    m.contactPhone ??
+    m.workshopPhone ??
+    m.ownerPhone
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined
+}
+
 function formatJobAddress(booking: any): string {
   if (booking.locationAddress && typeof booking.locationAddress === 'string') return booking.locationAddress
   const parts = [booking.locationStreet, booking.locationCity, booking.locationState].filter(Boolean)
@@ -920,12 +1039,137 @@ function formatJobAddress(booking: any): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 20, paddingBottom: 40 },
-  mainCard: { padding: 20 },
-  heroBlock: { marginBottom: 4 },
-  vehicle: { fontSize: 20, fontWeight: '700', color: colors.text, letterSpacing: 0.2 },
-  fault: { fontSize: 15, color: colors.textSecondary, marginTop: 6 },
+  container: { flex: 1, backgroundColor: colors.brand.page },
+  missingIdWrap: { justifyContent: 'center', padding: 24 },
+  missingIdText: {
+    fontSize: 16,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  heroForest: {
+    backgroundColor: colors.brand.forest,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroForestPad: { padding: 24, paddingBottom: 22 },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroLeft: { flex: 1, minWidth: 0 },
+  heroRight: { alignItems: 'flex-end', maxWidth: '42%' },
+  heroVehicle: {
+    fontSize: 22,
+    fontFamily: fonts.headingBold,
+    color: '#fff',
+    letterSpacing: -0.4,
+    lineHeight: 28,
+  },
+  heroFault: {
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: 'rgba(255,255,255,0.68)',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  heroMoneyLabel: {
+    fontSize: 9,
+    fontFamily: fonts.semiBold,
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1.2,
+  },
+  heroMoneyValue: {
+    fontSize: 20,
+    fontFamily: fonts.headingBold,
+    color: colors.primary[300],
+    marginTop: 4,
+  },
+  heroMoneyValueMuted: {
+    fontSize: 17,
+    fontFamily: fonts.headingBold,
+    color: 'rgba(74, 222, 128, 0.95)',
+    marginTop: 4,
+  },
+  mechRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 22,
+    gap: 12,
+  },
+  mechAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mechAvatarText: { fontSize: 16, fontFamily: fonts.headingBold, color: '#fff' },
+  mechMeta: { flex: 1, minWidth: 0 },
+  mechCompany: { fontSize: 15, fontFamily: fonts.semiBold, color: '#fff' },
+  mechSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 4,
+    lineHeight: 15,
+  },
+  callPill: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  heroNoMech: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 14,
+    lineHeight: 19,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[100],
+  },
+  receiptRowText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fonts.semiBold,
+    color: colors.primary[700],
+  },
   statusChip: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
@@ -933,9 +1177,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 12,
   },
-  statusChipText: { fontSize: 13, fontWeight: '600' },
-  cost: { fontSize: 17, fontWeight: '700', color: colors.primary[600], marginTop: 10 },
-  mech: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
+  statusChipText: { fontSize: 13, fontFamily: fonts.semiBold },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -1035,9 +1277,25 @@ const styles = StyleSheet.create({
   },
   waitingTitle: { fontSize: 15, fontWeight: '700', color: colors.text, lineHeight: 22 },
   waitingText: { fontSize: 14, color: colors.textSecondary, marginTop: 6, lineHeight: 20 },
-  chatPlaceholder: { padding: 16 },
-  chatPlaceholderTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 },
-  chatPlaceholderText: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
+  chatPlaceholder: {
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: colors.neutral[50],
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+  },
+  chatPlaceholderTitle: {
+    fontSize: 15,
+    fontFamily: fonts.headingBold,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  chatPlaceholderText: {
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    lineHeight: 21,
+  },
   commentInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
@@ -1063,13 +1321,6 @@ const styles = StyleSheet.create({
   stars: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   star: { padding: 4 },
   cancelBtn: { marginTop: 12 },
-  receiptLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
-  },
-  receiptLinkText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
   photoRow: { marginBottom: 8 },
   photoThumb: {
     width: 96,
@@ -1092,10 +1343,13 @@ const styles = StyleSheet.create({
   },
   addPhotoBtnDisabled: { opacity: 0.5 },
   addPhotoBtnText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
+  chatSectionWrap: { marginTop: 8 },
   paymentsDisabledNote: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: colors.textSecondary,
-    marginTop: 16,
+    marginTop: 12,
+    marginBottom: 4,
     lineHeight: 20,
   },
   safetyHint: { fontSize: 14, color: colors.textSecondary, marginBottom: 12, lineHeight: 20 },

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -92,8 +93,18 @@ export function PaystackCheckoutModal({
 
   if (!visible || !authorizationUrl) return null
 
+  // iOS: avoid `fullScreen` here — Fabric + react-native-screens can crash in
+  // RNSModalScreenShadowNode::getContentOriginOffset when a RN Modal stacks on a native stack.
+  const modalPresentation =
+    Platform.OS === 'ios' ? ('pageSheet' as const) : ('fullScreen' as const)
+
   return (
-    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onRequestClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={modalPresentation}
+      onRequestClose={onRequestClose}
+    >
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={onRequestClose} hitSlop={12} accessibilityLabel="Close payment">
           <Ionicons name="close" size={28} color={colors.text} />

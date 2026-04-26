@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
-import { useFocusEffect } from '@react-navigation/native'
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity } from 'react-native'
 import { bookingsAPI, getApiErrorMessage } from '../../services/api'
 import { colors } from '../../theme/colors'
 import { Card } from '../../components/Card'
@@ -9,12 +9,22 @@ import { LoadingOverlay } from '../../components/LoadingOverlay'
 const NGN = '\u20A6'
 
 export function BookingReceiptScreen({ route }: { route: any }) {
-  const { id } = route.params
+  const navigation = useNavigation()
+  const id =
+    route?.params != null && route.params.id != null && route.params.id !== ''
+      ? String(route.params.id)
+      : ''
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
+    if (!id) {
+      setData(null)
+      setLoading(false)
+      setRefreshing(false)
+      return
+    }
     try {
       const res = await bookingsAPI.getReceipt(id)
       setData(res.data)
@@ -31,6 +41,17 @@ export function BookingReceiptScreen({ route }: { route: any }) {
       load()
     }, [load])
   )
+
+  if (!id) {
+    return (
+      <View style={[styles.empty, { flex: 1 }]}>
+        <Text style={styles.emptyText}>This receipt could not be opened.</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backLink}>
+          <Text style={styles.backLinkText}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   if (loading && !data) return <LoadingOverlay />
 
@@ -70,7 +91,7 @@ export function BookingReceiptScreen({ route }: { route: any }) {
         {data.mechanic ? (
           <Text style={styles.row}>
             <Text style={styles.label}>Mechanic: </Text>
-            {data.mechanic.companyName}
+            {data.mechanic?.companyName ?? 'Not set'}
           </Text>
         ) : null}
         <Text style={styles.row}>
@@ -99,8 +120,8 @@ export function BookingReceiptScreen({ route }: { route: any }) {
           <>
             <View style={styles.divider} />
             <Text style={styles.section}>Transactions</Text>
-            {data.transactions.map((t: any) => (
-              <View key={t.id} style={styles.txRow}>
+            {data.transactions.map((t: any, idx: number) => (
+              <View key={t?.id != null ? String(t.id) : `tx-${idx}`} style={styles.txRow}>
                 <Text style={styles.txType}>{t.type}</Text>
                 <Text style={[styles.txAmt, t.status === 'SUCCESS' && styles.txSuccess]}>
                   {t.status} · {NGN}
@@ -133,5 +154,7 @@ const styles = StyleSheet.create({
   txAmt: { fontSize: 14, color: colors.neutral[600] },
   txSuccess: { color: colors.accent.green },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText: { fontSize: 16, color: colors.textSecondary },
+  emptyText: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 16 },
+  backLink: { paddingVertical: 12, paddingHorizontal: 20 },
+  backLinkText: { fontSize: 16, fontWeight: '600', color: colors.primary[600] },
 })

@@ -1,3 +1,4 @@
+/** @see app.json `newArchEnabled` — Fabric + RN Modal on native stack is unstable on RN 0.81; set false until SDK upgrade. */
 const base = require('./app.json').expo;
 const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -40,6 +41,11 @@ module.exports = {
       infoPlist: {
         ...base.ios?.infoPlist,
         ITSAppUsesNonExemptEncryption: false,
+        /**
+         * Must be YES for per-screen status bar (RN warns if false).
+         * Also duplicated in app.json so merges never drop it.
+         */
+        UIViewControllerBasedStatusBarAppearance: true,
       },
     },
     android: {

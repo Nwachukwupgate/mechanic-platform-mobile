@@ -26,6 +26,7 @@ export function BookingChat({ bookingId, messages, onMessagesChange }: Props) {
   const currentUserId = useAuthStore((s) => s.user?.id) || ''
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const list = Array.isArray(messages) ? messages : []
 
   useEffect(() => {
     const socket = connectSocket()
@@ -47,7 +48,7 @@ export function BookingChat({ bookingId, messages, onMessagesChange }: Props) {
         senderId: currentUserId,
         createdAt: new Date().toISOString(),
       }
-      onMessagesChange([...messages, tempMsg])
+      onMessagesChange([...list, tempMsg])
     } catch (_) {}
     finally { setSending(false) }
   }
@@ -59,12 +60,12 @@ export function BookingChat({ bookingId, messages, onMessagesChange }: Props) {
         contentContainerStyle={styles.messageListContent}
         keyboardShouldPersistTaps="handled"
       >
-        {messages.length === 0 ? (
+        {list.length === 0 ? (
           <Text style={styles.noMessages}>No messages yet. Say hello!</Text>
         ) : (
-          messages.map((msg) => (
+          list.map((msg, idx) => (
             <View
-              key={msg.id}
+              key={msg.id != null ? String(msg.id) : `msg-${idx}`}
               style={[
                 styles.bubble,
                 msg.senderId === currentUserId ? styles.bubbleRight : styles.bubbleLeft,

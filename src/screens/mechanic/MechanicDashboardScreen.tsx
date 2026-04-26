@@ -226,7 +226,7 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             icon="paper-plane-outline"
             iconBg={colors.brand.requestedBg}
             iconColor={colors.brand.requestedFg}
-            title="Sent to you — send a quote"
+            title="Sent to you: send a quote"
             showSeeAll={pending.length > LIST_PREVIEW}
             onSeeAll={() => navigation.navigate('Bookings')}
           />

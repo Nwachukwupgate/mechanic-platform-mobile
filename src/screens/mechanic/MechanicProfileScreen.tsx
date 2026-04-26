@@ -527,9 +527,9 @@ export function MechanicProfileScreen() {
   const ratingLabel =
     stats && stats.ratingCount > 0 && stats.averageRating != null
       ? `${stats.averageRating} \u2605`
-      : '—'
-  const jobsLabel = stats != null ? String(stats.jobsCompleted) : '—'
-  const winLabel = stats?.quoteWinRate != null ? `${stats.quoteWinRate}%` : '—'
+      : '…'
+  const jobsLabel = stats != null ? String(stats.jobsCompleted) : '…'
+  const winLabel = stats?.quoteWinRate != null ? `${stats.quoteWinRate}%` : '…'
 
   return (
     <ScrollView
@@ -557,7 +557,7 @@ export function MechanicProfileScreen() {
         </View>
         <Text style={styles.heroTitle}>{display.companyName || user?.companyName || 'Your workshop'}</Text>
         <Text style={styles.heroSubtitle}>
-          {[display.ownerFullName, display.email || user?.email].filter(Boolean).join(' · ') || '—'}
+          {[display.ownerFullName, display.email || user?.email].filter(Boolean).join(', ') || '…'}
         </Text>
         <View style={styles.heroChips}>
           <View style={styles.mechanicChip}>
@@ -688,15 +688,15 @@ export function MechanicProfileScreen() {
           <View style={styles.readOnlyBlock}>
             <View style={styles.readOnlyRow}>
               <Text style={styles.readOnlyLabel}>Company name</Text>
-              <Text style={styles.readOnlyValue}>{display.companyName || user?.companyName || '—'}</Text>
+              <Text style={styles.readOnlyValue}>{display.companyName || user?.companyName || '…'}</Text>
             </View>
             <View style={styles.readOnlyRow}>
               <Text style={styles.readOnlyLabel}>Owner name</Text>
-              <Text style={styles.readOnlyValue}>{display.ownerFullName || '—'}</Text>
+              <Text style={styles.readOnlyValue}>{display.ownerFullName || '…'}</Text>
             </View>
             <View style={[styles.readOnlyRow, styles.readOnlyRowLast]}>
               <Text style={styles.readOnlyLabel}>Email</Text>
-              <Text style={styles.readOnlyValue}>{display.email || user?.email || '—'}</Text>
+              <Text style={styles.readOnlyValue}>{display.email || user?.email || '…'}</Text>
             </View>
           </View>
           <View style={styles.formGroup}>

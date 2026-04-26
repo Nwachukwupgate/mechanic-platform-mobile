@@ -8,6 +8,7 @@ import { UserWalletScreen } from '../screens/user/UserWalletScreen'
 import { BookingReceiptScreen } from '../screens/user/BookingReceiptScreen'
 import { NotificationsScreen } from '../screens/shared/NotificationsScreen'
 import { colors } from '../theme/colors'
+import { forestHeaderScreenOptions } from './forestHeaderScreenOptions'
 
 const Stack = createNativeStackNavigator()
 
@@ -15,11 +16,23 @@ export function UserStack() {
   return (
     <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }}>
       <Stack.Screen name="Main" component={UserTabs} options={{ headerShown: false }} />
-      <Stack.Screen name="BookingDetail" component={BookingDetailScreen} options={{ title: 'Booking' }} />
+      <Stack.Screen
+        name="BookingDetail"
+        component={BookingDetailScreen}
+        options={{ title: 'Booking', ...forestHeaderScreenOptions }}
+      />
       <Stack.Screen name="VehicleForm" component={VehicleFormScreen} options={({ route }: any) => ({ title: route.params?.vehicleId ? 'Edit vehicle' : 'Add vehicle' })} />
-      <Stack.Screen name="JobHistory" component={JobHistoryScreen} options={{ title: 'Job history' }} />
+      <Stack.Screen
+        name="JobHistory"
+        component={JobHistoryScreen}
+        options={{ title: 'Job history', ...forestHeaderScreenOptions }}
+      />
       <Stack.Screen name="UserWallet" component={UserWalletScreen} options={{ title: 'Wallet' }} />
-      <Stack.Screen name="BookingReceipt" component={BookingReceiptScreen} options={{ title: 'Receipt' }} />
+      <Stack.Screen
+        name="BookingReceipt"
+        component={BookingReceiptScreen}
+        options={{ title: 'Receipt', ...forestHeaderScreenOptions }}
+      />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Activity' }} />
     </Stack.Navigator>
   )

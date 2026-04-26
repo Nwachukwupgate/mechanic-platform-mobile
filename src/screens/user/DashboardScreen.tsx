@@ -267,9 +267,9 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
             const rating =
               typeof m.averageRating === 'number' && !Number.isNaN(m.averageRating)
                 ? m.averageRating.toFixed(1)
-                : '—'
+                : '…'
             const dist =
-              typeof m.distanceKm === 'number' ? `${m.distanceKm.toFixed(1)} km` : '—'
+              typeof m.distanceKm === 'number' ? `${m.distanceKm.toFixed(1)} km` : '…'
             return (
               <TouchableOpacity
                 key={`nearby-${mechanic?.id ?? m.id ?? idx}`}

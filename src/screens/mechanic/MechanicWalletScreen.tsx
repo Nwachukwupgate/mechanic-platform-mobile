@@ -132,7 +132,7 @@ export function MechanicWalletScreen() {
         Alert.alert('Payment successful', 'Your platform fee payment was received.')
       }
     } catch {
-      // Still pending, cancelled, or network error — keep pending ref for retry on next focus
+      // Still pending, cancelled, or network error; keep pending ref for retry on next focus
     } finally {
       verifyingFeePaystackRef.current = false
     }
@@ -378,7 +378,7 @@ export function MechanicWalletScreen() {
     }
     Alert.alert(
       'Cancel checkout?',
-      'Only cancel if you did not complete payment on Paystack. If you already paid, choose Continue or wait a moment—we will detect the payment automatically.',
+      'Only cancel if you did not complete payment on Paystack. If you already paid, choose Continue or wait a moment; we will detect the payment automatically.',
       [
         { text: 'Keep', style: 'cancel' },
         {
@@ -577,7 +577,7 @@ export function MechanicWalletScreen() {
         )}
       </Card>
 
-      {/* Pending Paystack checkouts — resume or cancel */}
+      {/* Pending Paystack checkouts: resume or cancel */}
       {pendingFeeCheckouts.length > 0 ? (
         <Card style={styles.pendingCheckoutSection}>
           <View style={styles.sectionHeader}>
@@ -624,7 +624,7 @@ export function MechanicWalletScreen() {
         </Card>
       ) : null}
 
-      {/* Pay platform fee (full owed balance only) — Paystack */}
+      {/* Pay platform fee (full owed balance only), Paystack */}
       {unpaidFeeMinor >= 100 ? (
         <Card style={styles.section}>
           <View style={styles.sectionHeader}>

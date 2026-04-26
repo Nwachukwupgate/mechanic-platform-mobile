@@ -94,7 +94,7 @@ export function DeleteAccountSheet({ visible, onClose, onConfirm, loading }: Pro
           {step === 'reasons' ? (
             <>
               <Text style={styles.lead}>
-                We’re sorry to see you go. Tell us why you’re leaving — it helps us improve.
+                We’re sorry to see you go. Tell us why you’re leaving; it helps us improve.
               </Text>
               <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
                 {USER_DELETE_REASON_OPTIONS.map((opt) => {

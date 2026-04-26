@@ -113,7 +113,7 @@ export function UserWalletScreen({ route }: { route: any }) {
             </View>
             <View style={[styles.statusBadge, { backgroundColor: (STATUS_COLORS[item.status] || colors.neutral[300]) + '22' }]}>
               <Text style={[styles.statusText, { color: STATUS_COLORS[item.status] || colors.text }]}>
-                {item.status || '—'}
+                {item.status || '…'}
               </Text>
             </View>
             {item.amountMinor != null && (
