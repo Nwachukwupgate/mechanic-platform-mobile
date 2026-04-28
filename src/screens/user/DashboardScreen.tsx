@@ -182,6 +182,37 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         </View>
       </View>
 
+      <AnimatedFadeIn delay={180} duration={280}>
+        <View style={[styles.actionSection, { paddingHorizontal: PAD }]}>
+          <View style={styles.actionSectionHeader}>
+            <Ionicons name="grid-outline" size={18} color={colors.brand.primary} />
+            <Text style={styles.actionSectionTitle}>Quick actions</Text>
+          </View>
+          <View style={styles.actionRow}>
+            <DashboardActionTile
+              layout="column"
+              showChevron={false}
+              icon="checkmark-done-outline"
+              title="Job history"
+              subtitle="Completed jobs"
+              iconColor={colors.brand.paid}
+              iconBg={colors.brand.paidBg}
+              onPress={() => navigation.getParent()?.navigate('JobHistory')}
+            />
+            <DashboardActionTile
+              layout="column"
+              showChevron={false}
+              icon="wallet-outline"
+              title="Wallet"
+              subtitle="Balance & payments"
+              iconColor={colors.primary[800]}
+              iconBg={colors.primary[50]}
+              onPress={() => navigation.getParent()?.navigate('UserWallet')}
+            />
+          </View>
+        </View>
+      </AnimatedFadeIn>
+
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Recent bookings</Text>
         {showRecentSeeAll ? (
@@ -275,7 +306,29 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                 key={`nearby-${mechanic?.id ?? m.id ?? idx}`}
                 style={styles.nearbyCard}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('FindMechanics')}
+                onPress={() => {
+                  const id = mechanic?.id
+                  if (!id) {
+                    navigation.navigate('FindMechanics')
+                    return
+                  }
+                  navigation.getParent()?.navigate('MechanicPublicProfile', {
+                    mechanicId: id,
+                    preferredMechanicName:
+                      mechanic?.companyName || mechanic?.ownerFullName || displayName,
+                    fromNearbySummary: {
+                      jobsCompleted: typeof m.jobsCompleted === 'number' ? m.jobsCompleted : undefined,
+                      distanceKm: typeof m.distanceKm === 'number' ? m.distanceKm : undefined,
+                      averageRating:
+                        typeof m.averageRating === 'number' && !Number.isNaN(m.averageRating)
+                          ? m.averageRating
+                          : undefined,
+                      typicalResponseHours:
+                        typeof m.typicalResponseHours === 'number' ? m.typicalResponseHours : undefined,
+                      nextAvailableNote: m.nextAvailableNote ?? undefined,
+                    },
+                  })
+                }}
               >
                 <View style={styles.nearbyAvatar}>
                   <Text style={styles.nearbyAvatarText}>{initial}</Text>
@@ -295,37 +348,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           })}
         </ScrollView>
       </View>
-
-      <AnimatedFadeIn delay={180} duration={280}>
-        <View style={[styles.actionSection, { paddingHorizontal: PAD }]}>
-          <View style={styles.actionSectionHeader}>
-            <Ionicons name="grid-outline" size={18} color={colors.brand.primary} />
-            <Text style={styles.actionSectionTitle}>Quick actions</Text>
-          </View>
-          <View style={styles.actionRow}>
-            <DashboardActionTile
-              layout="column"
-              showChevron={false}
-              icon="checkmark-done-outline"
-              title="Job history"
-              subtitle="Completed jobs"
-              iconColor={colors.brand.paid}
-              iconBg={colors.brand.paidBg}
-              onPress={() => navigation.getParent()?.navigate('JobHistory')}
-            />
-            <DashboardActionTile
-              layout="column"
-              showChevron={false}
-              icon="wallet-outline"
-              title="Wallet"
-              subtitle="Balance & payments"
-              iconColor={colors.primary[800]}
-              iconBg={colors.primary[50]}
-              onPress={() => navigation.getParent()?.navigate('UserWallet')}
-            />
-          </View>
-        </View>
-      </AnimatedFadeIn>
     </ScrollView>
   )
 }

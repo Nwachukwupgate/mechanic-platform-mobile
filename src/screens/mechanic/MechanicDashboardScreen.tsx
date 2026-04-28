@@ -26,8 +26,10 @@ import { getGreetingLine } from '../../utils/greeting'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
 import { layout } from '../../theme/layout'
 import { Button } from '../../components/Button'
+import { DashboardActionTile } from '../../components/DashboardActionTile'
 
 const PAD = layout.screenPaddingHorizontal
+const TILE_GAP = 10
 const LIST_PREVIEW = 3
 
 const ACTIVE_STATUSES = ['REQUESTED', 'ACCEPTED', 'IN_PROGRESS']
@@ -220,54 +222,6 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
         </View>
       )}
 
-      {pendingPreview.length > 0 && (
-        <>
-          <SectionHeading
-            icon="paper-plane-outline"
-            iconBg={colors.brand.requestedBg}
-            iconColor={colors.brand.requestedFg}
-            title="Sent to you: send a quote"
-            showSeeAll={pending.length > LIST_PREVIEW}
-            onSeeAll={() => navigation.navigate('Bookings')}
-          />
-          {pendingPreview.map((b: any) => (
-            <TouchableOpacity
-              key={b.id}
-              onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
-              activeOpacity={0.8}
-            >
-              <Card style={styles.bookingCard}>
-                <View style={styles.bookingCardInner}>
-                  <IconBadge
-                    name="person"
-                    size={20}
-                    color={colors.brand.requestedFg}
-                    backgroundColor={colors.brand.requestedBg}
-                    style={styles.bookingIcon}
-                  />
-                  <View style={styles.bookingContent}>
-                    <Text style={styles.vehicle} numberOfLines={1}>
-                      {b.vehicle?.brand} {b.vehicle?.model}
-                    </Text>
-                    <View style={styles.faultRow}>
-                      <Ionicons name="construct-outline" size={14} color={colors.textSecondary} />
-                      <Text style={styles.fault} numberOfLines={1}>
-                        {b.fault?.name}
-                      </Text>
-                    </View>
-                    <View style={styles.openLabelWrap}>
-                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.brand.primary} />
-                      <Text style={styles.openLabel}>Direct request · tap to quote</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
-                </View>
-              </Card>
-            </TouchableOpacity>
-          ))}
-        </>
-      )}
-
       {openPreview.length > 0 && (
         <>
           <SectionHeading
@@ -306,6 +260,54 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                     <View style={styles.openLabelWrap}>
                       <Ionicons name="pricetag-outline" size={14} color={colors.brand.primary} />
                       <Text style={styles.openLabel}>No quote yet</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
+
+      {pendingPreview.length > 0 && (
+        <>
+          <SectionHeading
+            icon="paper-plane-outline"
+            iconBg={colors.brand.requestedBg}
+            iconColor={colors.brand.requestedFg}
+            title="Sent to you: send a quote"
+            showSeeAll={pending.length > LIST_PREVIEW}
+            onSeeAll={() => navigation.navigate('Bookings')}
+          />
+          {pendingPreview.map((b: any) => (
+            <TouchableOpacity
+              key={b.id}
+              onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
+              activeOpacity={0.8}
+            >
+              <Card style={styles.bookingCard}>
+                <View style={styles.bookingCardInner}>
+                  <IconBadge
+                    name="person"
+                    size={20}
+                    color={colors.brand.requestedFg}
+                    backgroundColor={colors.brand.requestedBg}
+                    style={styles.bookingIcon}
+                  />
+                  <View style={styles.bookingContent}>
+                    <Text style={styles.vehicle} numberOfLines={1}>
+                      {b.vehicle?.brand} {b.vehicle?.model}
+                    </Text>
+                    <View style={styles.faultRow}>
+                      <Ionicons name="construct-outline" size={14} color={colors.textSecondary} />
+                      <Text style={styles.fault} numberOfLines={1}>
+                        {b.fault?.name}
+                      </Text>
+                    </View>
+                    <View style={styles.openLabelWrap}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.brand.primary} />
+                      <Text style={styles.openLabel}>Direct request, tap to quote</Text>
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={colors.neutral[400]} />
@@ -373,6 +375,37 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
           })}
         </>
       )}
+
+      <AnimatedFadeIn delay={180} duration={280}>
+        <View style={[styles.actionSection, { paddingHorizontal: PAD }]}>
+          <View style={styles.actionSectionHeader}>
+            <Ionicons name="grid-outline" size={18} color={colors.brand.primary} />
+            <Text style={styles.actionSectionTitle}>Quick actions</Text>
+          </View>
+          <View style={styles.actionRow}>
+            <DashboardActionTile
+              layout="column"
+              showChevron={false}
+              icon="time-outline"
+              title="Job history"
+              subtitle="Past work & payouts"
+              iconColor={colors.brand.paid}
+              iconBg={colors.brand.paidBg}
+              onPress={() => navigation.navigate('History')}
+            />
+            <DashboardActionTile
+              layout="column"
+              showChevron={false}
+              icon="wallet-outline"
+              title="Wallet"
+              subtitle="Balance & fees"
+              iconColor={colors.primary[800]}
+              iconBg={colors.primary[50]}
+              onPress={() => navigation.navigate('Wallet')}
+            />
+          </View>
+        </View>
+      </AnimatedFadeIn>
     </ScrollView>
   )
 }
@@ -586,4 +619,17 @@ const styles = StyleSheet.create({
   statusChipText: { fontFamily: fonts.semiBold, fontSize: 12, letterSpacing: 0.15 },
   costRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   cost: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.text },
+  actionSection: { marginBottom: 16, alignSelf: 'stretch', marginTop: 12 },
+  actionSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  actionSectionTitle: { ...typography.section, color: colors.text, marginBottom: 0, fontSize: 16 },
+  actionRow: {
+    flexDirection: 'row',
+    gap: TILE_GAP,
+    alignSelf: 'stretch',
+  },
 })

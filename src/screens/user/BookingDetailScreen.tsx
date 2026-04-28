@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
-  Image,
   Modal,
   AppState,
   AppStateStatus,
@@ -37,6 +36,7 @@ import { PaystackCheckoutModal } from '../../components/PaystackCheckoutModal'
 import { BookingDetailAccordion } from '../../components/bookingDetail/BookingDetailAccordion'
 import { BookingDetailProgressSteps } from '../../components/bookingDetail/BookingDetailProgressSteps'
 import { BookingHeroDecor } from '../../components/bookingDetail/BookingHeroDecor'
+import { BookingPhotoGallery } from '../../components/bookingDetail/BookingPhotoGallery'
 
 const PAYMENT_STATUSES = ['ACCEPTED', 'IN_PROGRESS', 'DONE']
 const MAX_BOOKING_PHOTOS = 3
@@ -613,18 +613,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               </>
             )}
 
-            {photoUrls.length > 0 && (
-              <>
-                <Text style={[styles.sectionLabel, styles.sectionLabelInCollapse]}>Photos</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
-                  {photoUrls.map((url: string) => (
-                    <TouchableOpacity key={url} onPress={() => Linking.openURL(url)}>
-                      <Image source={{ uri: url }} style={styles.photoThumb} />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
+            <BookingPhotoGallery
+              photoUrls={photoUrls}
+              title="Issue photos"
+              subtitle="Share clear photos so mechanics can diagnose faster"
+              emptyHint="No photos added yet."
+            />
 
             {booking.status === 'REQUESTED' && (
               <>

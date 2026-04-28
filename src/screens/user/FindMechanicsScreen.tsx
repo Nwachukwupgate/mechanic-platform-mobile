@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
+import { setStatusBarStyle } from 'expo-status-bar'
 import {
   View,
   Text,
@@ -12,16 +13,43 @@ import {
   TextInput,
   Switch,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { vehiclesAPI, faultsAPI, bookingsAPI, ratingsAPI, getApiErrorMessage } from '../../services/api'
 import { reverseGeocode, searchAddress, type ReverseGeocodeResult, type GeocodeSearchResult } from '../../services/geocoding'
 import { useCurrentLocation } from '../../utils/location'
 import { colors } from '../../theme/colors'
+import { fonts } from '../../theme/fonts'
+import { typography } from '../../theme/typography'
+import { layout } from '../../theme/layout'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { MechanicsMap, type MechanicMarker } from '../../components/MechanicsMap'
+import { HeroDecorativeRings } from '../../components/HeroDecorativeRings'
+import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
+
+const PAD = layout.screenPaddingHorizontal
+
+function SectionHeader({
+  icon,
+  title,
+  first,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name']
+  title: string
+  first?: boolean
+}) {
+  return (
+    <View style={[styles.sectionHeader, first && styles.sectionHeaderFirst]}>
+      <View style={styles.sectionIconWrap}>
+        <Ionicons name={icon} size={18} color={colors.brand.primary} />
+      </View>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+    </View>
+  )
+}
 
 const MAX_JOB_PHOTOS = 3
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -52,7 +80,10 @@ type MechanicResult = {
   workshopLng?: number
 }
 
-export function FindMechanicsScreen({ navigation }: { navigation: any }) {
+export function FindMechanicsScreen({ navigation, route = {} }: { navigation: any; route?: any }) {
+  const insets = useSafeAreaInsets()
+  const preferredMechanicId = route.params?.preferredMechanicId as string | undefined
+  const preferredMechanicName = route.params?.preferredMechanicName as string | undefined
   const catalogLoadedOnce = useRef(false)
   const [vehicles, setVehicles] = useState<any[]>([])
   const [faults, setFaults] = useState<any[]>([])
@@ -113,6 +144,13 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
     }, [loadVehicleAndFaults])
   )
 
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('light')
+      return () => setStatusBarStyle('dark')
+    }, [])
+  )
+
   useEffect(() => {
     if (locationState.lat == null || locationState.lng == null) {
       setAddressPreview(null)
@@ -152,6 +190,15 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
       }).catch(() => {})
     })
   }, [mechanicIds])
+
+  const displayMechanics = useMemo(() => {
+    if (!preferredMechanicId) return mechanics
+    const idx = mechanics.findIndex((x) => x.mechanic?.id === preferredMechanicId)
+    if (idx <= 0) return mechanics
+    const next = [...mechanics]
+    const [picked] = next.splice(idx, 1)
+    return [picked, ...next]
+  }, [mechanics, preferredMechanicId])
 
   const lookupAddress = async () => {
     const q = addressQuery.trim()
@@ -332,7 +379,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
     }
   }
 
-  const mechanicMarkers: MechanicMarker[] = mechanics
+  const mechanicMarkers: MechanicMarker[] = displayMechanics
     .filter((m) => {
       const lat = m.workshopLat ?? m.mechanic?.workshopLat
       const lng = m.workshopLng ?? m.mechanic?.workshopLng
@@ -351,11 +398,56 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
 
   if (loading) return <LoadingOverlay />
 
+  const heroPadTop = Math.max(insets.top, 10) + 8
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Card style={styles.formCard}>
-          <Text style={[styles.sectionLabel, styles.sectionLabelFirst]}>Location</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroShell}>
+          <HeroDecorativeRings />
+          <View style={[styles.heroInner, { paddingTop: heroPadTop }]}>
+            <View style={styles.heroTop}>
+              <View style={styles.logoChip}>
+                <View style={styles.logoDot}>
+                  <Ionicons name="search" size={12} color="#fff" />
+                </View>
+                <Text style={styles.logoChipText} numberOfLines={1}>
+                  Find garages
+                </Text>
+              </View>
+            </View>
+            <AnimatedFadeIn>
+              <Text style={styles.heroTitle}>Nearby workshops</Text>
+              <Text style={styles.heroSubtitle}>
+                Set where you are, your car, and the issue. Search for matches or post the job for quotes.
+              </Text>
+            </AnimatedFadeIn>
+          </View>
+        </View>
+
+        {preferredMechanicId ? (
+          <AnimatedFadeIn delay={80}>
+            <View style={styles.blockPad}>
+              <Card style={styles.preferredBanner}>
+                <View style={styles.preferredBannerInner}>
+                  <View style={styles.preferredIconCircle}>
+                    <Ionicons name="pin" size={18} color={colors.brand.forest} />
+                  </View>
+                  <Text style={styles.preferredBannerText}>
+                    {preferredMechanicName
+                      ? `${preferredMechanicName} is pinned to the top of the list after you search.`
+                      : 'Your chosen garage is pinned to the top of the list after you search.'}
+                  </Text>
+                </View>
+              </Card>
+            </View>
+          </AnimatedFadeIn>
+        ) : null}
+
+        <AnimatedFadeIn delay={preferredMechanicId ? 120 : 90}>
+          <View style={styles.blockPad}>
+            <Card style={styles.surfaceCard}>
+              <SectionHeader icon="navigate" title="Location" first />
           <Button
             title={locationLoading ? 'Getting location…' : 'Use my location'}
             onPress={getLocation}
@@ -374,13 +466,13 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
           )}
           {addressLoading && locationState.lat != null && (
             <View style={styles.addressRow}>
-              <ActivityIndicator size="small" color={colors.primary[600]} />
+              <ActivityIndicator size="small" color={colors.brand.primary} />
               <Text style={styles.addressPreview}>Looking up address…</Text>
             </View>
           )}
           {!addressLoading && addressPreview && (
             <View style={styles.addressRow}>
-              <Ionicons name="location-outline" size={18} color={colors.primary[600]} />
+              <Ionicons name="location-outline" size={18} color={colors.brand.primary} />
               <Text style={styles.addressPreview} numberOfLines={2}>{addressPreview}</Text>
             </View>
           )}
@@ -420,7 +512,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
             </View>
           )}
 
-          <Text style={styles.sectionLabel}>Filters</Text>
+              <SectionHeader icon="options" title="Filters" />
           <Text style={styles.filterHint}>Minimum average rating (optional)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
             {[
@@ -440,12 +532,18 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <View style={styles.switchRow}>
+          <View style={[styles.switchRow, styles.switchRowInset]}>
             <Text style={styles.switchLabel}>Available mechanics only</Text>
             <Switch value={availableOnly} onValueChange={setAvailableOnly} />
           </View>
+            </Card>
+          </View>
+        </AnimatedFadeIn>
 
-          <Text style={styles.sectionLabel}>Photos of the issue (optional)</Text>
+        <AnimatedFadeIn delay={preferredMechanicId ? 160 : 130}>
+          <View style={[styles.blockPad, styles.blockPadTight]}>
+            <Card style={styles.surfaceCard}>
+              <SectionHeader icon="images" title="Photos (optional)" first />
           <Text style={styles.filterHint}>Up to {MAX_JOB_PHOTOS} images (JPEG, PNG, WebP, max 5MB each)</Text>
           <View style={styles.jobPhotoRow}>
             {jobPhotos.map((p, idx) => (
@@ -459,12 +557,12 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
           </View>
           {jobPhotos.length < MAX_JOB_PHOTOS ? (
             <TouchableOpacity style={styles.addJobPhotoBtn} onPress={() => void pickJobPhotos()}>
-              <Ionicons name="images-outline" size={20} color={colors.primary[600]} />
+              <Ionicons name="images-outline" size={20} color={colors.brand.primary} />
               <Text style={styles.addJobPhotoText}>Add photos</Text>
             </TouchableOpacity>
           ) : null}
 
-          <Text style={styles.sectionLabel}>Vehicle</Text>
+              <SectionHeader icon="car-sport" title="Vehicle" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
             {vehicles.map((v) => (
               <TouchableOpacity
@@ -476,7 +574,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <Text style={styles.sectionLabel}>Issue</Text>
+              <SectionHeader icon="construct" title="Issue" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
             {faults.map((f) => (
               <TouchableOpacity
@@ -488,7 +586,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <Text style={styles.sectionLabel}>Additional details (optional)</Text>
+              <SectionHeader icon="document-text" title="More detail (optional)" />
           <TextInput
             style={styles.notesInput}
             placeholder="e.g. when it started, sounds, warning lights..."
@@ -515,64 +613,110 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
               style={styles.postJobBtn}
             />
           </View>
-        </Card>
+            </Card>
+          </View>
+        </AnimatedFadeIn>
 
         {searching && (
-          <>
-            <View style={styles.loadingSection}>
-              <ActivityIndicator size="small" color={colors.primary[600]} />
-              <Text style={styles.loadingSectionText}>Finding nearby mechanics…</Text>
+          <AnimatedFadeIn>
+            <View style={[styles.blockPad, styles.blockPadTight]}>
+              <View style={styles.loadingSection}>
+                <ActivityIndicator size="small" color={colors.brand.primary} />
+                <Text style={styles.loadingSectionText}>Finding nearby mechanics…</Text>
+              </View>
+              <View style={styles.skeletonList}>
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} style={styles.skeletonCard}>
+                    <View style={[styles.skeletonLine, { width: '70%' }]} />
+                    <View style={[styles.skeletonLine, { width: '50%', marginTop: 8 }]} />
+                    <View style={[styles.skeletonLine, { width: '85%', marginTop: 8 }]} />
+                    <View style={[styles.skeletonButton, { marginTop: 12 }]} />
+                  </Card>
+                ))}
+              </View>
             </View>
-            <View style={styles.skeletonList}>
-              {[1, 2, 3].map((i) => (
-                <Card key={i} style={styles.skeletonCard}>
-                  <View style={[styles.skeletonLine, { width: '70%' }]} />
-                  <View style={[styles.skeletonLine, { width: '50%', marginTop: 8 }]} />
-                  <View style={[styles.skeletonLine, { width: '85%', marginTop: 8 }]} />
-                  <View style={[styles.skeletonButton, { marginTop: 12 }]} />
-                </Card>
-              ))}
-            </View>
-          </>
+          </AnimatedFadeIn>
         )}
 
         {!searching && mechanics.length > 0 && (
-          <>
-            <View style={styles.resultsHeader}>
-              <Text style={styles.resultsTitle}>Nearby mechanics</Text>
-              <View style={styles.toggleRow}>
-                <TouchableOpacity
-                  onPress={() => setViewMode('list')}
-                  style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
-                >
-                  <Ionicons name="list" size={18} color={viewMode === 'list' ? '#fff' : colors.text} />
-                  <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>List</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setViewMode('map')}
-                  style={[styles.toggleBtn, viewMode === 'map' && styles.toggleBtnActive]}
-                >
-                  <Ionicons name="map" size={18} color={viewMode === 'map' ? '#fff' : colors.text} />
-                  <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>Map</Text>
-                </TouchableOpacity>
+          <AnimatedFadeIn delay={40}>
+            <View style={[styles.blockPad, styles.blockPadTight]}>
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsTitle}>Nearby mechanics</Text>
+                <View style={styles.toggleShell}>
+                  <TouchableOpacity
+                    onPress={() => setViewMode('list')}
+                    style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
+                  >
+                    <Ionicons name="list" size={17} color={viewMode === 'list' ? '#fff' : colors.brand.forest} />
+                    <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>List</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setViewMode('map')}
+                    style={[styles.toggleBtn, viewMode === 'map' && styles.toggleBtnActive]}
+                  >
+                    <Ionicons name="map" size={17} color={viewMode === 'map' ? '#fff' : colors.brand.forest} />
+                    <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>Map</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
 
-            {viewMode === 'map' && locationState.lat != null && locationState.lng != null && (
-              <MechanicsMap
-                userLat={locationState.lat}
-                userLng={locationState.lng}
-                mechanics={mechanicMarkers}
-                style={styles.mapBlock}
-              />
-            )}
+              {viewMode === 'map' && locationState.lat != null && locationState.lng != null && (
+                <View style={styles.mapWrap}>
+                  <MechanicsMap
+                    userLat={locationState.lat}
+                    userLng={locationState.lng}
+                    mechanics={mechanicMarkers}
+                    style={styles.mapBlock}
+                  />
+                </View>
+              )}
 
-            {viewMode === 'list' && mechanics.map((m: MechanicResult) => {
+            {viewMode === 'list' ? (
+              <View style={styles.mechanicListWrap}>
+                {displayMechanics.map((m: MechanicResult) => {
               const mid = m.mechanic?.id
               const rating = mid ? ratings[mid] : undefined
               return (
                 <Card key={mid} style={styles.mechanicCard}>
-                  <View style={styles.mechanicTop}>
+                  {typeof m.distanceKm === 'number' && !Number.isNaN(m.distanceKm) ? (
+                    <View style={styles.mechanicDistBadge}>
+                      <Ionicons name="navigate-outline" size={12} color={colors.brand.forest} />
+                      <Text style={styles.mechanicDistText}>{m.distanceKm.toFixed(1)} km</Text>
+                    </View>
+                  ) : null}
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    accessibilityRole="button"
+                    accessibilityLabel="View garage profile"
+                    onPress={() => {
+                      if (!mid) return
+                      navigation.getParent()?.navigate('MechanicPublicProfile', {
+                        mechanicId: mid,
+                        preferredMechanicName:
+                          m.mechanic?.companyName || m.mechanic?.ownerFullName || undefined,
+                        fromNearbySummary: {
+                          jobsCompleted: typeof m.jobsCompleted === 'number' ? m.jobsCompleted : undefined,
+                          distanceKm: typeof m.distanceKm === 'number' ? m.distanceKm : undefined,
+                          averageRating:
+                            typeof m.averageRating === 'number' && !Number.isNaN(m.averageRating)
+                              ? m.averageRating
+                              : undefined,
+                          typicalResponseHours:
+                            typeof m.typicalResponseHours === 'number' ? m.typicalResponseHours : undefined,
+                          nextAvailableNote: m.nextAvailableNote ?? undefined,
+                        },
+                      })
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.mechanicTop,
+                        typeof m.distanceKm === 'number' && !Number.isNaN(m.distanceKm)
+                          ? styles.mechanicTopWithBadge
+                          : null,
+                      ]}
+                    >
                     {m.mechanic?.avatarUrl ? (
                       <Image source={{ uri: m.mechanic.avatarUrl }} style={styles.avatar} />
                     ) : (
@@ -639,6 +783,7 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
                   {m.workshopAddress || m.mechanic?.workshopAddress ? (
                     <Text style={styles.addr} numberOfLines={1}>{m.workshopAddress || m.mechanic?.workshopAddress}</Text>
                   ) : null}
+                  </TouchableOpacity>
                   <Button
                     title={requestingId === mid ? 'Requesting…' : 'Request service'}
                     onPress={() => mid && requestService(mid)}
@@ -647,18 +792,24 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
                   />
                 </Card>
               )
-            })}
-          </>
+                })
+                }
+              </View>
+            ) : null}
+            </View>
+          </AnimatedFadeIn>
         )}
 
         {!searching && mechanics.length === 0 && (
-          <View style={styles.emptySection}>
-            <Ionicons name="construct-outline" size={48} color={colors.neutral[400]} />
-            <Text style={styles.emptyTitle}>{hasSearched ? 'No mechanics found' : 'No mechanics yet'}</Text>
+          <View style={[styles.blockPad, styles.emptySection]}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="construct-outline" size={40} color={colors.brand.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>{hasSearched ? 'No mechanics found' : 'Ready when you are'}</Text>
             <Text style={styles.emptyText}>
               {hasSearched
-                ? 'No nearby mechanics found. Try a larger area or different issue.'
-                : 'Set your location and tap "Search mechanics" to find nearby garages.'}
+                ? 'No nearby garages matched. Try a different issue or check your location.'
+                : 'Set your location above, then tap Search mechanics to see garages near you.'}
             </Text>
           </View>
         )}
@@ -669,22 +820,139 @@ export function FindMechanicsScreen({ navigation }: { navigation: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 20, paddingBottom: 40 },
-  formCard: { padding: 20 },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.neutral[600],
-    letterSpacing: 0.4,
-    marginTop: 20,
-    marginBottom: 10,
+  scroll: { paddingBottom: 40, width: '100%', paddingTop: 0 },
+
+  heroShell: {
+    width: '100%',
+    backgroundColor: colors.brand.forest,
+    borderBottomLeftRadius: layout.heroBottomRadius,
+    borderBottomRightRadius: layout.heroBottomRadius,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: colors.brand.forest,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  sectionLabelFirst: { marginTop: 0 },
-  subSectionLabel: {
+  heroInner: {
+    paddingHorizontal: PAD,
+    paddingBottom: 26,
+    position: 'relative',
+  },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  logoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingLeft: 8,
+    paddingRight: 12,
+    alignSelf: 'flex-start',
+  },
+  logoDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoChipText: {
+    fontFamily: fonts.semiBold,
     fontSize: 12,
-    fontWeight: '700',
+    color: '#f8fafc',
+    letterSpacing: 0.35,
+  },
+  heroTitle: { ...typography.titleSmall, color: '#f8fafc', letterSpacing: -0.3, marginBottom: 8 },
+  heroSubtitle: {
+    ...typography.body,
+    fontSize: 14,
+    lineHeight: 21,
+    color: 'rgba(248,250,252,0.55)',
+  },
+
+  blockPad: { paddingHorizontal: PAD },
+  blockPadTight: { marginTop: 4 },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  sectionHeaderFirst: { marginTop: 0 },
+  sectionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: colors.primary[50],
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionHeaderTitle: {
+    ...typography.section,
+    fontSize: 16,
+    color: colors.brand.forest,
+    flex: 1,
+  },
+
+  surfaceCard: {
+    padding: 20,
+    borderRadius: layout.cardRadius,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+
+  preferredBanner: {
+    padding: 16,
+    backgroundColor: colors.primary[50],
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+    borderLeftWidth: 4,
+    borderLeftColor: colors.brand.primary,
+  },
+  preferredBannerInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  preferredIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+  },
+  preferredBannerText: {
+    flex: 1,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.text,
+  },
+
+  subSectionLabel: {
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
     color: colors.neutral[500],
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginTop: 16,
     marginBottom: 8,
@@ -694,42 +962,62 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.neutral[200],
-    borderRadius: 12,
+    borderRadius: layout.cardRadiusSmall,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+    fontFamily: fonts.regular,
     color: colors.text,
+    backgroundColor: colors.surface,
   },
   lookupBtn: {
-    backgroundColor: colors.primary[600],
+    backgroundColor: colors.brand.primary,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: layout.cardRadiusSmall,
   },
   lookupBtnDisabled: { opacity: 0.6 },
-  lookupBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  lookupBtnText: { color: '#fff', fontFamily: fonts.semiBold, fontSize: 14 },
   suggestionsBox: {
     marginTop: 10,
     borderWidth: 1,
     borderColor: colors.neutral[200],
-    borderRadius: 12,
+    borderRadius: layout.cardRadiusSmall,
     overflow: 'hidden',
     backgroundColor: colors.surface,
   },
-  suggestionRow: { paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.neutral[200] },
-  suggestionText: { fontSize: 14, color: colors.text },
-  filterHint: { fontSize: 13, color: colors.textSecondary, marginBottom: 8 },
+  suggestionRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.neutral[200],
+  },
+  suggestionText: { fontSize: 14, fontFamily: fonts.regular, color: colors.text },
+  filterHint: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary, marginBottom: 8 },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  switchLabel: { fontSize: 15, color: colors.text, flex: 1, marginRight: 12 },
+  switchRowInset: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.neutral[50],
+    borderRadius: layout.cardRadiusSmall,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+  },
+  switchLabel: { fontSize: 15, fontFamily: fonts.regular, color: colors.text, flex: 1, marginRight: 12 },
   jobPhotoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
   jobPhotoWrap: { position: 'relative' },
-  jobPhotoThumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.neutral[100] },
+  jobPhotoThumb: {
+    width: 76,
+    height: 76,
+    borderRadius: layout.cardRadiusSmall,
+    backgroundColor: colors.neutral[100],
+  },
   jobPhotoRemove: { position: 'absolute', top: -6, right: -6 },
   addJobPhotoBtn: {
     flexDirection: 'row',
@@ -739,60 +1027,165 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: layout.cardRadiusSmall,
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+    backgroundColor: colors.primary[50],
+  },
+  addJobPhotoText: { fontSize: 15, fontFamily: fonts.semiBold, color: colors.brand.primary },
+  locationBtn: { marginTop: 8 },
+  hint: { fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
+  addressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
+  addressPreview: { fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary, flex: 1, lineHeight: 20 },
+  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
+  errorText: { fontSize: 14, fontFamily: fonts.regular, color: colors.accent.red, flex: 1 },
+  dismissText: { fontSize: 14, fontFamily: fonts.semiBold, color: colors.brand.primary },
+  chips: { marginTop: 8, marginHorizontal: -2 },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 22,
+    backgroundColor: colors.neutral[100],
+    marginRight: 8,
     borderWidth: 1,
     borderColor: colors.neutral[200],
   },
-  addJobPhotoText: { fontSize: 15, fontWeight: '600', color: colors.primary[600] },
-  locationBtn: { marginTop: 6 },
-  hint: { fontSize: 14, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
-  addressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
-  addressPreview: { fontSize: 14, color: colors.textSecondary, flex: 1, lineHeight: 20 },
-  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
-  errorText: { fontSize: 14, color: colors.accent.red, flex: 1 },
-  dismissText: { fontSize: 14, color: colors.primary[600], fontWeight: '600' },
-  chips: { marginTop: 10, marginHorizontal: -4 },
-  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22, backgroundColor: colors.neutral[100], marginRight: 10 },
-  chipActive: { backgroundColor: colors.primary[600] },
-  chipText: { fontSize: 14, color: colors.text },
+  chipActive: {
+    backgroundColor: colors.brand.primary,
+    borderColor: colors.brand.primary,
+  },
+  chipText: { fontSize: 14, fontFamily: fonts.semiBold, color: colors.text },
   chipTextActive: { color: '#fff' },
   notesInput: {
     borderWidth: 1,
     borderColor: colors.neutral[200],
-    borderRadius: 12,
+    borderRadius: layout.cardRadiusSmall,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
+    fontFamily: fonts.regular,
     color: colors.text,
     minHeight: 88,
     marginTop: 8,
     textAlignVertical: 'top',
+    backgroundColor: colors.neutral[50],
   },
-  actionRow: { gap: 14, marginTop: 22 },
+  actionRow: { gap: 12, marginTop: 22 },
   searchBtn: {},
   postJobBtn: {},
-  loadingSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 28 },
-  loadingSectionText: { fontSize: 15, color: colors.textSecondary },
-  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, marginBottom: 16, flexWrap: 'wrap', gap: 10 },
-  resultsTitle: { fontSize: 19, fontWeight: '700', color: colors.text },
-  toggleRow: { flexDirection: 'row', gap: 6 },
-  toggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.neutral[100] },
-  toggleBtnActive: { backgroundColor: colors.primary[600] },
-  toggleText: { fontSize: 14, color: colors.text },
+
+  loadingSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 24 },
+  loadingSectionText: { fontSize: 15, fontFamily: fonts.regular, color: colors.textSecondary },
+  skeletonList: { marginTop: 8 },
+  skeletonCard: {
+    marginBottom: layout.listCardGap,
+    borderRadius: layout.cardRadius,
+    padding: 18,
+  },
+  skeletonLine: { height: 14, borderRadius: 6, backgroundColor: colors.neutral[200] },
+  skeletonButton: { height: 48, borderRadius: layout.cardRadiusSmall, backgroundColor: colors.neutral[200] },
+
+  resultsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 14,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  resultsTitle: {
+    ...typography.section,
+    fontSize: 17,
+    color: colors.brand.forest,
+    flex: 1,
+    minWidth: 140,
+  },
+  toggleShell: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: 'rgba(12, 46, 26, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(12, 46, 26, 0.1)',
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  toggleBtnActive: {
+    backgroundColor: colors.brand.primary,
+  },
+  toggleText: { fontSize: 13, fontFamily: fonts.semiBold, color: colors.brand.forest },
   toggleTextActive: { color: '#fff' },
-  mapBlock: { marginBottom: 20 },
-  mechanicCard: { marginBottom: 16, padding: 20 },
+
+  mapWrap: {
+    borderRadius: layout.cardRadius,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+  },
+  mapBlock: { marginBottom: 0, height: 240 },
+  mechanicListWrap: { gap: 0 },
+
+  mechanicCard: {
+    marginBottom: layout.listCardGap,
+    padding: 18,
+    paddingTop: 20,
+    position: 'relative',
+    borderRadius: layout.cardRadius,
+    borderWidth: 1,
+    borderColor: colors.neutral[100],
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  mechanicDistBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+    zIndex: 1,
+  },
+  mechanicDistText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.brand.forest },
   mechanicTop: { flexDirection: 'row', alignItems: 'flex-start' },
-  avatar: { width: 58, height: 58, borderRadius: 29 },
-  avatarPlaceholder: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.neutral[100], alignItems: 'center', justifyContent: 'center' },
-  mechanicInfo: { flex: 1, marginLeft: 16 },
+  mechanicTopWithBadge: { paddingRight: 76 },
+  avatar: { width: 58, height: 58, borderRadius: 16, borderWidth: 1, borderColor: colors.neutral[100] },
+  avatarPlaceholder: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: colors.neutral[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+  },
+  mechanicInfo: { flex: 1, marginLeft: 14 },
   mechanicNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  mechanicName: { fontSize: 18, fontWeight: '700', color: colors.text },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  verifiedText: { fontSize: 12, color: colors.accent.green, fontWeight: '600' },
-  mechanicOwner: { fontSize: 14, color: colors.textSecondary, marginTop: 4 },
+  mechanicName: { fontFamily: fonts.headingBold, fontSize: 17, color: colors.text },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  verifiedText: { fontSize: 12, fontFamily: fonts.semiBold, color: colors.accent.green },
+  mechanicOwner: { fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  ratingText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  ratingText: { fontSize: 14, fontFamily: fonts.semiBold, color: colors.text },
   trustRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   trustPill: {
     flexDirection: 'row',
@@ -802,26 +1195,52 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
     backgroundColor: colors.primary[50],
+    borderWidth: 1,
+    borderColor: colors.primary[100],
   },
-  trustPillText: { fontSize: 12, fontWeight: '600', color: colors.brand.primary },
+  trustPillText: { fontSize: 12, fontFamily: fonts.semiBold, color: colors.brand.primary },
   nextNote: {
     fontSize: 13,
+    fontFamily: fonts.regular,
     color: colors.textSecondary,
     marginTop: 10,
     lineHeight: 18,
     fontStyle: 'italic',
   },
-  bio: { fontSize: 14, color: colors.textSecondary, marginTop: 14, lineHeight: 22 },
+  bio: { fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 12, lineHeight: 22 },
   expertiseRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  expertiseChip: { backgroundColor: colors.primary[50], paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  expertiseChipText: { fontSize: 12, color: colors.primary[700], fontWeight: '500' },
-  addr: { fontSize: 13, color: colors.neutral[500], marginTop: 12 },
-  reqBtn: { marginTop: 18 },
-  emptySection: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 28 },
-  emptyTitle: { fontSize: 19, fontWeight: '700', color: colors.text, marginTop: 16 },
-  emptyText: { fontSize: 15, color: colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 22 },
-  skeletonList: { marginTop: 12 },
-  skeletonCard: { marginBottom: 14 },
-  skeletonLine: { height: 14, borderRadius: 6, backgroundColor: colors.neutral[200] },
-  skeletonButton: { height: 48, borderRadius: 12, backgroundColor: colors.neutral[200] },
+  expertiseChip: {
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+  },
+  expertiseChipText: { fontSize: 12, fontFamily: fonts.semiBold, color: colors.primary[800] },
+  addr: { fontSize: 13, fontFamily: fonts.regular, color: colors.neutral[500], marginTop: 10 },
+  reqBtn: { marginTop: 16 },
+
+  emptySection: { alignItems: 'center', paddingVertical: 36, marginTop: 8 },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary[100],
+    marginBottom: 8,
+  },
+  emptyTitle: { fontFamily: fonts.headingBold, fontSize: 18, color: colors.brand.forest, marginTop: 8 },
+  emptyText: {
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
+  },
 })

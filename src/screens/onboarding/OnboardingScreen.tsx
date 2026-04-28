@@ -211,7 +211,6 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: '#1a1a1a' }]}>
-      <FakeStatusBar topInset={insets.top} horizontalInset={edgeH} />
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -386,31 +385,6 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </View>
         </View>
       </ScrollView>
-    </View>
-  )
-}
-
-function FakeStatusBar({
-  topInset,
-  horizontalInset,
-}: {
-  topInset: number
-  horizontalInset: { paddingLeft: number; paddingRight: number }
-}) {
-  const pad = Math.max(topInset, 14)
-  return (
-    <View style={[styles.sbar, { paddingTop: pad }, horizontalInset]} pointerEvents="none">
-      <Text style={styles.sbarTime}>9:41</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Ionicons name="cellular" size={14} color="#fff" />
-        <Ionicons name="wifi" size={14} color="#fff" />
-        <View style={styles.bat}>
-          <View style={styles.batBorder}>
-            <View style={styles.batFill} />
-          </View>
-          <View style={styles.batTip} />
-        </View>
-      </View>
     </View>
   )
 }
@@ -701,28 +675,4 @@ const styles = StyleSheet.create({
   skipHit: { marginTop: 14, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12 },
   skipText: { color: 'rgba(255,255,255,0.35)', fontSize: 13, fontFamily: fonts.semiBold, letterSpacing: 0.3 },
   skipAlt: { color: 'rgba(255,255,255,0.35)', fontSize: 13, fontFamily: fonts.semiBold, textAlign: 'center' },
-  sbar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  sbarTime: { color: '#fff', fontSize: 14, fontFamily: fonts.semiBold },
-  bat: { flexDirection: 'row', alignItems: 'center' },
-  batBorder: {
-    width: 18,
-    height: 10,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    borderRadius: 2,
-    padding: 1.5,
-    justifyContent: 'center',
-  },
-  batFill: { height: '100%', width: '55%', backgroundColor: '#fff', borderRadius: 1 },
-  batTip: { width: 2, height: 5, backgroundColor: '#fff', borderTopRightRadius: 1, borderBottomRightRadius: 1 },
 })

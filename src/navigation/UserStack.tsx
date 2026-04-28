@@ -7,6 +7,7 @@ import { JobHistoryScreen } from '../screens/user/JobHistoryScreen'
 import { UserWalletScreen } from '../screens/user/UserWalletScreen'
 import { BookingReceiptScreen } from '../screens/user/BookingReceiptScreen'
 import { NotificationsScreen } from '../screens/shared/NotificationsScreen'
+import { MechanicPublicProfileScreen } from '../screens/user/MechanicPublicProfileScreen'
 import { colors } from '../theme/colors'
 import { forestHeaderScreenOptions } from './forestHeaderScreenOptions'
 
@@ -34,6 +35,11 @@ export function UserStack() {
         options={{ title: 'Receipt', ...forestHeaderScreenOptions }}
       />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Activity' }} />
+      <Stack.Screen
+        name="MechanicPublicProfile"
+        component={MechanicPublicProfileScreen}
+        options={{ title: 'Garage profile', ...forestHeaderScreenOptions }}
+      />
     </Stack.Navigator>
   )
 }

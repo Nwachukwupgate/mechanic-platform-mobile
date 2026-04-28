@@ -143,6 +143,24 @@ export const usersAPI = {
 export const mechanicsAPI = {
   getAll: () => api.get('/mechanics'),
   getById: (id: string) => api.get(`/mechanics/${id}`),
+  /** USER role: anonymised completed jobs for mechanic profile (no customer PII). */
+  getPublicJobHistory: (mechanicId: string, limit?: number) =>
+    api.get<{
+      mechanicId: string
+      completedJobCount: number
+      jobs: Array<{
+        id: string
+        status: string
+        createdAt: string
+        completedAt: string | null
+        faultName: string
+        faultCategory: string
+        vehicleType: string
+        vehicleLabel: string
+      }>
+    }>(`/mechanics/${mechanicId}/public-job-history`, {
+      params: limit != null ? { limit } : undefined,
+    }),
   setPushToken: (token: string | null) => api.put('/mechanics/me/push-token', { token }),
   getProfile: () => api.get('/mechanics/me/profile'),
   updateProfile: (d: object) => api.put('/mechanics/me/profile', d),

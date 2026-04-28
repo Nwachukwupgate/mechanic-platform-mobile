@@ -27,6 +27,7 @@ import { BookingChat } from '../../components/BookingChat'
 import { BookingDetailAccordion } from '../../components/bookingDetail/BookingDetailAccordion'
 import { BookingDetailProgressSteps } from '../../components/bookingDetail/BookingDetailProgressSteps'
 import { BookingHeroDecor } from '../../components/bookingDetail/BookingHeroDecor'
+import { BookingPhotoGallery } from '../../components/bookingDetail/BookingPhotoGallery'
 
 export function MechanicBookingDetailScreen({ route, navigation }: { route: any; navigation: any }) {
   const id =
@@ -198,6 +199,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const hasLocation =
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
+  const photoUrls: string[] = Array.isArray(booking.photoUrls) ? booking.photoUrls : []
 
   const bookingStatusBadge = bookingStatusBadgeColors(status)
   const showPaidHero =
@@ -291,6 +293,12 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               ? booking.description
               : 'No written description. Use Ask a question (in Quotes) if you need more detail.'}
           </Text>
+          <BookingPhotoGallery
+            photoUrls={photoUrls}
+            title="Issue photos from customer"
+            subtitle="Use these photos to inspect the fault before you proceed"
+            emptyHint="Customer did not attach photos for this request."
+          />
 
           {status === 'REQUESTED' && booking.mechanicId === currentUserId ? (
             <Text style={styles.waitingHint}>

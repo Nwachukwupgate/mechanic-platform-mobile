@@ -1,0 +1,3 @@
+# Copy to LOCAL_API_CHECKOUT.txt (gitignored) with your machine path, one line only.
+# NestJS API used with this mobile app (for local scripts / agent context).
+/Users/you/Developer/mechanic-platform-api

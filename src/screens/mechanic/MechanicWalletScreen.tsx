@@ -23,6 +23,7 @@ import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { PaystackCheckoutModal } from '../../components/PaystackCheckoutModal'
+import { InfoHint } from '../../components/InfoHint'
 
 type BankAccount = {
   id: string
@@ -240,7 +241,7 @@ export function MechanicWalletScreen() {
   }
 
   const deleteAccount = (acc: BankAccount) => {
-    Alert.alert('Remove account', `Remove ${acc.bankName} · ${acc.accountNumber}?`, [
+    Alert.alert('Remove account', `Remove ${acc.bankName}, ${acc.accountNumber}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -278,7 +279,7 @@ export function MechanicWalletScreen() {
       await loadData()
       const dest =
         d?.destinationBank && d?.destinationAccountLast4
-          ? `${d.destinationBank} · ****${d.destinationAccountLast4}`
+          ? `${d.destinationBank}, ****${d.destinationAccountLast4}`
           : 'your default bank account'
       const refLine = d?.reference ? `\nReference: ${d.reference}` : ''
       const feeMinor = d?.feeChargedMinor
@@ -325,7 +326,7 @@ export function MechanicWalletScreen() {
       Alert.alert('Add a bank account', 'Set a default withdrawal account below before withdrawing.')
       return
     }
-    const masked = `${defaultBank.bankName} · ****${defaultBank.accountNumber.slice(-4)}`
+    const masked = `${defaultBank.bankName}, ****${defaultBank.accountNumber.slice(-4)}`
     Alert.alert(
       'Confirm withdrawal',
       `Send ₦${naira.toLocaleString(undefined, { maximumFractionDigits: 2 })} to ${masked}?`,
@@ -457,12 +458,13 @@ export function MechanicWalletScreen() {
     }
   }
 
-  const txSignedAmount = (t: { type: string; amountNaira: number }) => {
+  const txSignedAmount = (t: { type: string; amountNaira: number; status?: string }) => {
     const n = t.amountNaira ?? 0
+    const pending = t.status === 'PENDING'
     if (t.type === 'PLATFORM_PAYOUT' || t.type === 'MECHANIC_FEE') {
-      return { text: `-${'\u20A6'}${n.toLocaleString()}`, outgoing: true }
+      return { text: `-${'\u20A6'}${n.toLocaleString()}`, outgoing: true, pending }
     }
-    return { text: `+${'\u20A6'}${n.toLocaleString()}`, outgoing: false }
+    return { text: `+${'\u20A6'}${n.toLocaleString()}`, outgoing: false, pending }
   }
 
   if (loading) return <LoadingOverlay />
@@ -482,7 +484,15 @@ export function MechanicWalletScreen() {
           <View style={[styles.iconWrap, { backgroundColor: colors.primary[100] }]}>
             <Ionicons name="wallet" size={24} color={colors.primary[600]} />
           </View>
-          <Text style={styles.cardLabel}>Your balance</Text>
+          <View style={styles.cardLabelRow}>
+            <Text style={styles.cardLabel}>Your balance</Text>
+            <InfoHint
+              title="Your balance"
+              message="Net balance is your withdrawable earnings from platform-paid jobs, minus unpaid platform fees from direct-paid jobs. It can be negative if fees exceed what you have accrued."
+              iconSize={18}
+              iconColor={colors.neutral[500]}
+            />
+          </View>
         </View>
         <Text
           style={[
@@ -497,10 +507,6 @@ export function MechanicWalletScreen() {
         </Text>
         <Text style={styles.balanceMeta}>
           Unpaid platform fees (20% on direct jobs): ₦{unpaidFeeNairaDisplay.toLocaleString()}
-        </Text>
-        <Text style={styles.balanceHint}>
-          Net balance is withdrawable earnings minus fees you still owe. It can be negative if fees exceed accrued
-          payouts.
         </Text>
       </Card>
 
@@ -522,7 +528,7 @@ export function MechanicWalletScreen() {
           <View style={styles.withdrawDestination}>
             <Ionicons name="business-outline" size={18} color={colors.primary[600]} />
             <Text style={styles.withdrawDestinationText}>
-              Sending to <Text style={styles.withdrawDestinationStrong}>{defaultBank.bankName}</Text> · ****
+              Sending to <Text style={styles.withdrawDestinationStrong}>{defaultBank.bankName}</Text>, ****
               {defaultBank.accountNumber.slice(-4)} ({defaultBank.accountName})
             </Text>
           </View>
@@ -541,10 +547,6 @@ export function MechanicWalletScreen() {
             </Text>
           </View>
         ) : null}
-        <Text style={styles.withdrawFeeNote}>
-          Paystack may charge the platform a small transfer fee depending on your plan; the amount you enter is what we
-          send to your bank before any provider-side fees.
-        </Text>
         <Text style={styles.withdrawAvailableLabel}>
           Available to withdraw:{' '}
           <Text style={styles.withdrawAvailableAmount}>₦{(availableMinor / 100).toLocaleString()}</Text>
@@ -561,6 +563,8 @@ export function MechanicWalletScreen() {
         ) : null}
         <Input
           label="Amount (₦)"
+          hint="The amount you enter is what we send to your bank. Paystack may charge the platform a separate transfer fee depending on your plan."
+          hintTitle="Withdrawal amount"
           value={withdrawAmount}
           onChangeText={setWithdrawAmount}
           placeholder="0"
@@ -687,18 +691,24 @@ export function MechanicWalletScreen() {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     })}
-                    {t.type === 'MECHANIC_FEE' && t.status === 'PENDING'
-                      ? ' · Pending payment'
-                      : t.type === 'PLATFORM_PAYOUT' && t.status === 'PENDING'
-                        ? ' · Processing'
-                        : ''}
+                    {t.type === 'USER_PAYMENT' && t.status === 'PENDING'
+                      ? ', Payment pending confirmation'
+                      : t.type === 'MECHANIC_FEE' && t.status === 'PENDING'
+                        ? ', Pending payment'
+                        : t.type === 'PLATFORM_PAYOUT' && t.status === 'PENDING'
+                          ? ', Processing'
+                          : ''}
                   </Text>
                 </View>
                 <View style={styles.txRight}>
                   <Text
                     style={[
                       styles.txAmount,
-                      signed.outgoing ? { color: colors.accent.amber } : { color: colors.accent.green },
+                      signed.pending
+                        ? { color: colors.neutral[500] }
+                        : signed.outgoing
+                          ? { color: colors.accent.amber }
+                          : { color: colors.accent.green },
                     ]}
                   >
                     {signed.text}
@@ -765,7 +775,7 @@ export function MechanicWalletScreen() {
             <View style={styles.bankInfo}>
               <Text style={styles.bankName}>{acc.bankName}</Text>
               <Text style={styles.bankDetail}>
-                {acc.accountName} · {acc.accountNumber.replace(/(\d{4})(\d{4})(\d+)/, '$1****$3')}
+                {acc.accountName}, {acc.accountNumber.replace(/(\d{4})(\d{4})(\d+)/, '$1****$3')}
               </Text>
             </View>
             <View style={styles.bankActions}>
@@ -907,10 +917,10 @@ const styles = StyleSheet.create({
   balanceCard: { marginBottom: 20 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   iconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cardLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+  cardLabelRow: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  cardLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '500', flexShrink: 1 },
   heroAmount: { fontSize: 28, fontWeight: '800', marginBottom: 8 },
   balanceMeta: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
-  balanceHint: { fontSize: 12, color: colors.neutral[500], marginTop: 10, lineHeight: 18 },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -981,12 +991,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   withdrawPendingText: { flex: 1, fontSize: 13, color: colors.primary[900], lineHeight: 19 },
-  withdrawFeeNote: {
-    fontSize: 12,
-    color: colors.neutral[600],
-    marginBottom: 10,
-    lineHeight: 17,
-  },
   withdrawAvailableLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
   withdrawAvailableAmount: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
   quickWithdrawRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },

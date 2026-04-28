@@ -56,6 +56,7 @@ export function UserTabs() {
         component={FindMechanicsScreen}
         options={{
           title: 'Find',
+          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <TabBarIconWithDot name="search" size={size} color={color} focused={focused} />
           ),

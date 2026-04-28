@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# Absolute path to local Nest API checkout (see LOCAL_API_CHECKOUT.example)
+LOCAL_API_CHECKOUT.txt
+
 # Google Play API (EAS Submit) — never commit
 credentials/*.json
 

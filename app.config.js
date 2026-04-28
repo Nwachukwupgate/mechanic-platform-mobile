@@ -1,4 +1,8 @@
-/** @see app.json `newArchEnabled` — Fabric + RN Modal on native stack is unstable on RN 0.81; set false until SDK upgrade. */
+/**
+ * Expo Go always runs the New Architecture; keep `newArchEnabled` in app.json aligned (true)
+ * or Metro warns. If a device build still crashes on Modal + Paystack, try false again for
+ * production-only testing via a separate profile in eas.json.
+ */
 const base = require('./app.json').expo;
 const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -37,7 +41,7 @@ module.exports = {
     ios: {
       ...base.ios,
       bundleIdentifier: 'com.anonymous.mechanicplatformmobile',
-      buildNumber: '15',
+      buildNumber: '19',
       infoPlist: {
         ...base.ios?.infoPlist,
         ITSAppUsesNonExemptEncryption: false,
