@@ -89,6 +89,12 @@ export function MechanicTransactionDetailScreen() {
 
   const lines = detail.detailLines ?? []
   const b = detail.booking
+  const friendlyType =
+    detail.type === 'PLATFORM_FEE_AUTO_SETTLEMENT' ||
+    detail.type === 'AUTO_PLATFORM_FEE_SETTLEMENT' ||
+    detail.type === 'FEE_SETTLEMENT'
+      ? 'Auto fee settlement'
+      : detail.type.replace(/_/g, ' ')
 
   return (
     <ScrollView
@@ -96,7 +102,7 @@ export function MechanicTransactionDetailScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={styles.typeBadge}>{detail.type.replace(/_/g, ' ')}</Text>
+      <Text style={styles.typeBadge}>{friendlyType}</Text>
       <Text style={styles.amount}>
         {'\u20A6'}
         {detail.amountNaira.toLocaleString()}

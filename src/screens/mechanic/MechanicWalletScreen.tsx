@@ -263,10 +263,15 @@ export function MechanicWalletScreen() {
   }
 
   const bal = summary?.balance
-  const netNaira = bal?.netNaira ?? 0
-  const availableMinor = bal?.availableToWithdrawMinor ?? 0
+  const grossWithdrawableMinor = bal?.availableToWithdrawMinor ?? 0
   const unpaidFeeMinor = bal?.unpaidPlatformFeeMinor ?? 0
-  const unpaidFeeNairaDisplay = unpaidFeeMinor / 100
+  // Auto-net fee debt against platform-paid earnings before presenting withdrawable cash.
+  const autoSettledFeeMinor = Math.min(grossWithdrawableMinor, unpaidFeeMinor)
+  const remainingUnpaidFeeMinor = Math.max(0, unpaidFeeMinor - grossWithdrawableMinor)
+  const availableMinor = Math.max(0, grossWithdrawableMinor - unpaidFeeMinor)
+  const unpaidFeeNairaDisplay = remainingUnpaidFeeMinor / 100
+  const displayedNetMinor = availableMinor - remainingUnpaidFeeMinor
+  const netNaira = displayedNetMinor / 100
   const pendingFeeCheckouts = summary?.pendingPlatformFeeCheckouts ?? []
   const pendingFeeReservedMinor = pendingFeeCheckouts.reduce((s, p) => s + (p.amountMinor ?? 0), 0)
   const pendingCheckoutMinor = bal?.pendingPlatformFeeCheckoutMinor ?? pendingFeeReservedMinor
@@ -416,7 +421,7 @@ export function MechanicWalletScreen() {
   }
 
   const handlePayPlatformFee = async () => {
-    if (unpaidFeeMinor < 100) {
+    if (remainingUnpaidFeeMinor < 100) {
       Alert.alert('Nothing to pay', 'You have no platform fee balance due right now.')
       return
     }
@@ -430,7 +435,7 @@ export function MechanicWalletScreen() {
     setPayingPlatformFee(true)
     try {
       const res = await walletAPI.initializeMechanicFeePayment({
-        amountMinor: unpaidFeeMinor,
+        amountMinor: remainingUnpaidFeeMinor,
       })
       const url = res.data?.authorizationUrl
       const ref = res.data?.reference
@@ -459,6 +464,10 @@ export function MechanicWalletScreen() {
         return 'Withdrawal'
       case 'MECHANIC_FEE':
         return 'Platform fee'
+      case 'PLATFORM_FEE_AUTO_SETTLEMENT':
+      case 'AUTO_PLATFORM_FEE_SETTLEMENT':
+      case 'FEE_SETTLEMENT':
+        return 'Auto fee settlement'
       case 'REFUND':
         return 'Refund'
       default:
@@ -469,7 +478,13 @@ export function MechanicWalletScreen() {
   const txSignedAmount = (t: { type: string; amountNaira: number; status?: string }) => {
     const n = t.amountNaira ?? 0
     const pending = t.status === 'PENDING'
-    if (t.type === 'PLATFORM_PAYOUT' || t.type === 'MECHANIC_FEE') {
+    if (
+      t.type === 'PLATFORM_PAYOUT' ||
+      t.type === 'MECHANIC_FEE' ||
+      t.type === 'PLATFORM_FEE_AUTO_SETTLEMENT' ||
+      t.type === 'AUTO_PLATFORM_FEE_SETTLEMENT' ||
+      t.type === 'FEE_SETTLEMENT'
+    ) {
       return { text: `-${'\u20A6'}${n.toLocaleString()}`, outgoing: true, pending }
     }
     return { text: `+${'\u20A6'}${n.toLocaleString()}`, outgoing: false, pending }
@@ -496,7 +511,7 @@ export function MechanicWalletScreen() {
             <Text style={styles.cardLabel}>Your balance</Text>
             <InfoHint
               title="Your balance"
-              message="Withdrawable amount is your 80% share from jobs where the customer paid through the platform, minus withdrawals. Unpaid platform fees are 20% on jobs where the customer paid you directly. The fee number shown is what you still owe after confirmed payments; if you start a Paystack fee payment, that amount is treated as set aside until it succeeds or you cancel. Your balance (large number) is withdrawable minus that remaining fee."
+              message="Available to withdraw is your 80% share from platform-paid jobs after automatically settling any unpaid 20% fee debt from direct-paid jobs. If debt is larger than earnings, the remaining debt still shows under amount due. Your balance (large number) is available-to-withdraw minus any remaining debt."
               iconSize={18}
               iconColor={colors.neutral[500]}
             />
@@ -511,12 +526,17 @@ export function MechanicWalletScreen() {
           {netNaira >= 0 ? '' : '-'}₦{Math.abs(netNaira).toLocaleString()}
         </Text>
         <Text style={styles.balanceMeta}>
-          Withdrawable (80% from platform-paid jobs): ₦{(bal?.availableToWithdrawNaira ?? 0).toLocaleString()}
+          Available to withdraw now: ₦{(availableMinor / 100).toLocaleString()}
         </Text>
         <Text style={styles.balanceMeta}>
-          Unpaid platform fees (20% on direct jobs, remaining): ₦
+          Platform fee amount due (remaining): ₦
           {unpaidFeeNairaDisplay.toLocaleString()}
         </Text>
+        {autoSettledFeeMinor > 0 ? (
+          <Text style={styles.balanceMetaNote}>
+            Auto-settled from your platform earnings: ₦{(autoSettledFeeMinor / 100).toLocaleString()}
+          </Text>
+        ) : null}
         {pendingCheckoutMinor > 0 ? (
           <Text style={styles.balanceMetaNote}>
             ₦{(pendingCheckoutMinor / 100).toLocaleString()} in Paystack fee checkout
@@ -647,7 +667,7 @@ export function MechanicWalletScreen() {
       ) : null}
 
       {/* Pay platform fee (full owed balance only), Paystack */}
-      {unpaidFeeMinor >= 100 ? (
+      {remainingUnpaidFeeMinor >= 100 ? (
         <Card style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={[styles.iconWrap, { backgroundColor: colors.accent.amber + '25' }]}>
@@ -711,7 +731,11 @@ export function MechanicWalletScreen() {
                     })}
                     {t.type === 'USER_PAYMENT' && t.status === 'PENDING'
                       ? ', Payment pending confirmation'
-                      : t.type === 'MECHANIC_FEE' && t.status === 'PENDING'
+                      : (t.type === 'MECHANIC_FEE' ||
+                          t.type === 'PLATFORM_FEE_AUTO_SETTLEMENT' ||
+                          t.type === 'AUTO_PLATFORM_FEE_SETTLEMENT' ||
+                          t.type === 'FEE_SETTLEMENT') &&
+                        t.status === 'PENDING'
                         ? ', Pending payment'
                         : t.type === 'PLATFORM_PAYOUT' && t.status === 'PENDING'
                           ? ', Processing'
