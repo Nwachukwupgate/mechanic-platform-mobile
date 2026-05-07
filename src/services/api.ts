@@ -76,7 +76,9 @@ api.interceptors.response.use(
       const isAuthRoute =
         url.includes('/auth/login') ||
         url.includes('/auth/register') ||
-        url.includes('/auth/verify-email')
+        url.includes('/auth/verify-email') ||
+        url.includes('/auth/forgot-password') ||
+        url.includes('/auth/reset-password')
       if (!isAuthRoute) useAuthStore.getState().logout()
     }
     return Promise.reject(error)
@@ -124,6 +126,14 @@ export const authAPI = {
     api.post('/auth/login/mechanic', { email, password }),
   verifyEmail: (token: string, role: string) =>
     api.get(`/auth/verify-email?token=${encodeURIComponent(token)}&role=${encodeURIComponent(role)}`),
+  forgotPassword: (body: { email: string; role: 'USER' | 'MECHANIC' }) =>
+    api.post<{ message: string }>('/auth/forgot-password', body),
+  resetPassword: (body: {
+    email: string
+    role: 'USER' | 'MECHANIC'
+    code: string
+    newPassword: string
+  }) => api.post<{ message: string }>('/auth/reset-password', body),
   getMe: () => api.get('/auth/me'),
 }
 
@@ -370,6 +380,8 @@ export const walletAPI = {
       currency: string
       totalFeeOwedMinor: number
       totalFeePaidMinor: number
+      pendingFeeCheckoutsMinor?: number
+      grossUnpaidAfterSuccessPaymentsMinor?: number
     }>('/wallet/owing'),
   getSummary: () =>
     api.get<{
@@ -380,6 +392,10 @@ export const walletAPI = {
         availableToWithdrawNaira: number
         unpaidPlatformFeeMinor: number
         unpaidPlatformFeeNaira: number
+        grossUnpaidPlatformFeeAfterSuccessMinor?: number
+        grossUnpaidPlatformFeeAfterSuccessNaira?: number
+        pendingPlatformFeeCheckoutMinor?: number
+        pendingPlatformFeeCheckoutNaira?: number
         totalEarnedFromPlatformMinor?: number
         totalPayoutsMinor?: number
         totalFeeOwedMinor?: number

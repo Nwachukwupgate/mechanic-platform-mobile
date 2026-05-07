@@ -41,6 +41,10 @@ type WalletSummaryBalance = {
   availableToWithdrawNaira: number
   unpaidPlatformFeeMinor: number
   unpaidPlatformFeeNaira: number
+  grossUnpaidPlatformFeeAfterSuccessMinor?: number
+  grossUnpaidPlatformFeeAfterSuccessNaira?: number
+  pendingPlatformFeeCheckoutMinor?: number
+  pendingPlatformFeeCheckoutNaira?: number
   currency: string
 }
 
@@ -265,6 +269,10 @@ export function MechanicWalletScreen() {
   const unpaidFeeNairaDisplay = unpaidFeeMinor / 100
   const pendingFeeCheckouts = summary?.pendingPlatformFeeCheckouts ?? []
   const pendingFeeReservedMinor = pendingFeeCheckouts.reduce((s, p) => s + (p.amountMinor ?? 0), 0)
+  const pendingCheckoutMinor = bal?.pendingPlatformFeeCheckoutMinor ?? pendingFeeReservedMinor
+  const grossFeeAfterSuccessMinor =
+    bal?.grossUnpaidPlatformFeeAfterSuccessMinor ??
+    (pendingCheckoutMinor > 0 ? unpaidFeeMinor + pendingCheckoutMinor : unpaidFeeMinor)
   /** Full-balance Paystack init is blocked while any pending checkout holds capacity. */
   const blockedByPendingCheckout = pendingFeeReservedMinor > 0
   const pendingWithdrawals = summary?.pendingWithdrawals ?? []
@@ -488,7 +496,7 @@ export function MechanicWalletScreen() {
             <Text style={styles.cardLabel}>Your balance</Text>
             <InfoHint
               title="Your balance"
-              message="Net balance is your withdrawable earnings from platform-paid jobs, minus unpaid platform fees from direct-paid jobs. It can be negative if fees exceed what you have accrued."
+              message="Withdrawable amount is your 80% share from jobs where the customer paid through the platform, minus withdrawals. Unpaid platform fees are 20% on jobs where the customer paid you directly. The fee number shown is what you still owe after confirmed payments; if you start a Paystack fee payment, that amount is treated as set aside until it succeeds or you cancel. Your balance (large number) is withdrawable minus that remaining fee."
               iconSize={18}
               iconColor={colors.neutral[500]}
             />
@@ -506,8 +514,18 @@ export function MechanicWalletScreen() {
           Withdrawable (80% from platform-paid jobs): ₦{(bal?.availableToWithdrawNaira ?? 0).toLocaleString()}
         </Text>
         <Text style={styles.balanceMeta}>
-          Unpaid platform fees (20% on direct jobs): ₦{unpaidFeeNairaDisplay.toLocaleString()}
+          Unpaid platform fees (20% on direct jobs, remaining): ₦
+          {unpaidFeeNairaDisplay.toLocaleString()}
         </Text>
+        {pendingCheckoutMinor > 0 ? (
+          <Text style={styles.balanceMetaNote}>
+            ₦{(pendingCheckoutMinor / 100).toLocaleString()} in Paystack fee checkout
+            {grossFeeAfterSuccessMinor > unpaidFeeMinor
+              ? ` · before checkout, 20% due was ₦${(grossFeeAfterSuccessMinor / 100).toLocaleString()}`
+              : ''}
+            . Your balance already reflects this checkout.
+          </Text>
+        ) : null}
       </Card>
 
       {/* Withdraw to bank */}
@@ -921,6 +939,7 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '500', flexShrink: 1 },
   heroAmount: { fontSize: 28, fontWeight: '800', marginBottom: 8 },
   balanceMeta: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  balanceMetaNote: { fontSize: 12, color: colors.neutral[500], marginTop: 6, lineHeight: 17 },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',

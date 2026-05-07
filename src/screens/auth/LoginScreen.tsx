@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image, TouchableOpacity } from 'react-native'
 import { authAPI, getApiErrorMessage } from '../../services/api'
 import { validateLogin } from '../../utils/validation'
 import { useAuthStore } from '../../store/authStore'
@@ -85,6 +85,13 @@ export function LoginScreen({ navigation }: { navigation: any }) {
             showPasswordToggle
             placeholder="••••••••"
           />
+          <TouchableOpacity
+            style={styles.forgotWrap}
+            onPress={() => navigation.navigate('ForgotPassword')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </TouchableOpacity>
           {error ? <Text style={styles.errText}>{error}</Text> : null}
           <Button title="Sign in" onPress={handleLogin} loading={loading} />
         </Card>
@@ -116,6 +123,8 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 8,
   },
+  forgotWrap: { alignSelf: 'flex-end', marginBottom: 4, marginTop: 2 },
+  forgotText: { fontSize: 14, color: colors.primary[600], fontWeight: '600' },
   errText: { color: colors.accent.red, fontSize: 14, marginBottom: 12 },
   registerBtn: { marginTop: 16 },
 })
