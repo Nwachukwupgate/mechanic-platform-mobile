@@ -1,5 +1,33 @@
 import { useCallback, useState } from 'react';
+import { Alert, Linking, Platform } from 'react-native';
 import * as Location from 'expo-location';
+
+export type LocationPermissionContext = 'user' | 'mechanic';
+
+/** Alert when foreground location permission was denied; offers Open Settings. */
+export function promptOpenLocationSettings(context: LocationPermissionContext): void {
+  const message =
+    context === 'mechanic'
+      ? 'Location is off or denied. Turn it on in Settings so we can set your workshop on the map and show you in nearby search.'
+      : 'Location is off or denied. Turn it on in Settings so we can find mechanics near you.';
+
+  Alert.alert('Turn on location', message, [
+    { text: 'Not now', style: 'cancel' },
+    {
+      text: 'Open Settings',
+      onPress: () => {
+        Linking.openSettings().catch(() => {
+          Alert.alert(
+            'Settings',
+            Platform.OS === 'ios'
+              ? 'Open Settings → Denicksen Auto → Location → While Using the App.'
+              : 'Open Settings → Apps → Denicksen Auto → Permissions → Location.'
+          );
+        });
+      },
+    },
+  ]);
+}
 
 export type LocationState = {
   lat: number | null;
@@ -64,7 +92,7 @@ export async function getCurrentPosition(): Promise<LocationState> {
 export function useCurrentLocation(): {
   locationState: LocationState
   locationLoading: boolean
-  getLocation: () => Promise<void>
+  getLocation: () => Promise<LocationState>
   setManualLocation: (lat: number, lng: number) => void
   clearError: () => void
 } {
@@ -73,10 +101,11 @@ export function useCurrentLocation(): {
 
   const getLocation = useCallback(async () => {
     setLocationLoading(true);
-    setLocationState((prev) => ({ ...prev, error: null }));
+    setLocationState((prev) => ({ ...prev, error: null, permissionDenied: false }));
     const next = await getCurrentPosition();
     setLocationState(next);
     setLocationLoading(false);
+    return next;
   }, []);
 
   const clearError = useCallback(() => {

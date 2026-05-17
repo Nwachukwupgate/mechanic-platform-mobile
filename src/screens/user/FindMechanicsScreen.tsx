@@ -23,7 +23,7 @@ import {
   isVeryCloseStraightLine,
 } from '../../utils/mechanicProximityLabels'
 import { reverseGeocode, searchAddress, type ReverseGeocodeResult, type GeocodeSearchResult } from '../../services/geocoding'
-import { useCurrentLocation } from '../../utils/location'
+import { useCurrentLocation, promptOpenLocationSettings } from '../../utils/location'
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { typography } from '../../theme/typography'
@@ -114,6 +114,14 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
     setManualLocation,
     clearError,
   } = useCurrentLocation()
+
+  const handleUseMyLocation = async () => {
+    const next = await getLocation()
+    if (next.permissionDenied) {
+      promptOpenLocationSettings('user')
+    }
+  }
+
   const [minRating, setMinRating] = useState<number | null>(null)
   const [availableOnly, setAvailableOnly] = useState(false)
   const [jobPhotos, setJobPhotos] = useState<LocalJobPhoto[]>([])
@@ -231,7 +239,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
         setAddressSuggestions([])
       }
     } catch (e: any) {
-      Alert.alert('Lookup failed', getApiErrorMessage(e, 'Check your connection and API key.'))
+      Alert.alert('Lookup failed', getApiErrorMessage(e, 'Check your connection and try again.'))
     } finally {
       setAddressLookupLoading(false)
     }
@@ -469,7 +477,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
               <SectionHeader icon="navigate" title="Location" first />
           <Button
             title={locationLoading ? 'Getting location…' : 'Use my location'}
-            onPress={getLocation}
+            onPress={() => void handleUseMyLocation()}
             loading={locationLoading}
             variant="outline"
             style={styles.locationBtn}

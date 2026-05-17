@@ -26,6 +26,13 @@ module.exports = {
       ...(base.plugins || []),
       '@react-native-community/datetimepicker',
       'expo-notifications',
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            'Allow Denicksen Auto to use your location to find nearby mechanics and set your workshop on the map.',
+        },
+      ],
     ],
     slug: 'mechanic',
     owner: 'treyp99s-organization',

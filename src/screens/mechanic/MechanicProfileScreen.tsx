@@ -29,7 +29,7 @@ import {
   isPropertyNotAllowedError,
 } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
-import { useCurrentLocation } from '../../utils/location'
+import { useCurrentLocation, promptOpenLocationSettings } from '../../utils/location'
 import { reverseGeocode } from '../../services/geocoding'
 import { MECHANIC_VEHICLE_TYPES, EXPERTISE_OPTIONS } from '../../constants/mechanic'
 import { CAR_BRANDS } from '../../constants/vehicles'
@@ -139,7 +139,7 @@ export function MechanicProfileScreen() {
   const [uploadingCert, setUploadingCert] = useState(false)
   const [deletingAccount, setDeletingAccount] = useState(false)
   const [pickerOpen, setPickerOpen] = useState<'vehicleTypes' | 'expertise' | 'brands' | null>(null)
-  const { getLocation, locationState } = useCurrentLocation()
+  const { getLocation, locationState, locationLoading, clearError } = useCurrentLocation()
   const [locationRequested, setLocationRequested] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [certificateUrl, setCertificateUrl] = useState<string | null>(null)
@@ -346,9 +346,13 @@ export function MechanicProfileScreen() {
     }
   }
 
-  const useMyLocation = () => {
+  const useMyLocation = async () => {
+    const next = await getLocation()
+    if (next.permissionDenied) {
+      promptOpenLocationSettings('mechanic')
+      return
+    }
     setLocationRequested(true)
-    getLocation()
   }
 
   useEffect(() => {
@@ -789,7 +793,21 @@ export function MechanicProfileScreen() {
               onChangeText={(t) => setForm((f) => ({ ...f, workshopAddress: t }))}
               placeholder="Or use button below"
             />
-            <Button title="Use my location" onPress={useMyLocation} variant="outline" style={styles.formBtn} />
+            <Button
+              title={locationLoading ? 'Getting location…' : 'Use my location'}
+              onPress={() => void useMyLocation()}
+              loading={locationLoading}
+              variant="outline"
+              style={styles.formBtn}
+            />
+            {locationState.error ? (
+              <View style={styles.locationErrorRow}>
+                <Text style={styles.locationErrorText}>{locationState.error}</Text>
+                <TouchableOpacity onPress={clearError} hitSlop={8}>
+                  <Text style={styles.locationErrorDismiss}>Dismiss</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
             <Input
               label="Address (full)"
               value={form.address}
@@ -1191,6 +1209,14 @@ const styles = StyleSheet.create({
   selectChipText: { fontSize: 15, color: colors.text },
   hintText: { fontSize: 12, color: colors.neutral[500], marginTop: 4, marginBottom: 4 },
   formBtn: { marginTop: 12 },
+  locationErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+  },
+  locationErrorText: { flex: 1, fontSize: 13, color: colors.accent.red, fontFamily: fonts.regular },
+  locationErrorDismiss: { fontSize: 13, color: colors.brand.primary, fontFamily: fonts.semiBold },
   row: { flexDirection: 'row', gap: 12, marginTop: 8, alignItems: 'stretch' },
   cityStateIntro: {
     fontSize: 14,
