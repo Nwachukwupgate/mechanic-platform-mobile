@@ -37,9 +37,10 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const [booking, setBooking] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [updatingStatus, setUpdatingStatus] = useState(false)
-  const [cost, setCost] = useState('')
+  const [partsCost, setPartsCost] = useState('')
+  const [labourCost, setLabourCost] = useState('')
+  const [otherFees, setOtherFees] = useState('')
   const [updatingCost, setUpdatingCost] = useState(false)
-  const [quotePrice, setQuotePrice] = useState('')
   const [quoteMessage, setQuoteMessage] = useState('')
   const [submittingQuote, setSubmittingQuote] = useState(false)
   const [updatingQuote, setUpdatingQuote] = useState(false)
@@ -76,9 +77,17 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       const quotes = Array.isArray(quotesRes.data) ? quotesRes.data : []
       const mine = quotes.find((q: any) => q.mechanicId === currentUserId)
       setMyQuote(mine || null)
-      if (mine && !quotePrice) {
-        setQuotePrice(String(mine.proposedPrice ?? ''))
+      if (mine) {
+        setPartsCost(String(mine.partsNaira ?? 0))
+        setLabourCost(String(mine.labourNaira ?? mine.proposedPrice ?? ''))
+        setOtherFees(String(mine.otherFeesNaira ?? 0))
         setQuoteMessage(mine.message ?? '')
+      }
+      const inv = b.activeInvoice
+      if (inv) {
+        setPartsCost(String(inv.partsNaira ?? 0))
+        setLabourCost(String(inv.labourNaira ?? 0))
+        setOtherFees(String(inv.otherFeesNaira ?? 0))
       }
     } catch (_) {}
     finally { setLoading(false) }
@@ -111,13 +120,26 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     }
   }
 
-  const setCostSubmit = async () => {
-    const num = parseFloat(cost)
-    if (!num || num <= 0) return
+  const quoteTotal = () => {
+    const p = parseFloat(partsCost) || 0
+    const l = parseFloat(labourCost) || 0
+    const o = parseFloat(otherFees) || 0
+    return p + l + o
+  }
+
+  const saveCosting = async () => {
+    const total = quoteTotal()
+    if (total <= 0) {
+      Alert.alert('Required', 'Enter parts, labour, or other fees')
+      return
+    }
     setUpdatingCost(true)
     try {
-      await bookingsAPI.updateCost(id, num)
-      setCost('')
+      await bookingsAPI.upsertInvoice(id, {
+        partsCost: parseFloat(partsCost) || 0,
+        labourCost: parseFloat(labourCost) || 0,
+        otherFees: parseFloat(otherFees) || 0,
+      })
       load()
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
@@ -127,14 +149,19 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const submitQuote = async () => {
-    const price = parseFloat(quotePrice)
-    if (!price || price <= 0) {
-      Alert.alert('Required', 'Enter a valid price')
+    const total = quoteTotal()
+    if (total <= 0) {
+      Alert.alert('Required', 'Enter a valid cost breakdown')
       return
     }
     setSubmittingQuote(true)
     try {
-      await bookingsAPI.createQuote(id, { proposedPrice: price, message: quoteMessage.trim() || undefined })
+      await bookingsAPI.createQuote(id, {
+        partsCost: parseFloat(partsCost) || 0,
+        labourCost: parseFloat(labourCost) || 0,
+        otherFees: parseFloat(otherFees) || 0,
+        message: quoteMessage.trim() || undefined,
+      })
       load()
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
@@ -144,11 +171,15 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const updateQuote = async () => {
-    const price = parseFloat(quotePrice)
-    if (!price || price <= 0 || !myQuote) return
+    const total = quoteTotal()
+    if (total <= 0 || !myQuote) return
     setUpdatingQuote(true)
     try {
-      await bookingsAPI.updateQuote(id, myQuote.id, { proposedPrice: price })
+      await bookingsAPI.updateQuote(id, myQuote.id, {
+        partsCost: parseFloat(partsCost) || 0,
+        labourCost: parseFloat(labourCost) || 0,
+        otherFees: parseFloat(otherFees) || 0,
+      })
       load()
     } catch (e: any) {
       Alert.alert('Error', getApiErrorMessage(e))
@@ -323,19 +354,21 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               style={styles.actionBtn}
             />
           ) : null}
-          {(status === 'ACCEPTED' || status === 'IN_PROGRESS') && booking.estimatedCost == null ? (
-            <View style={styles.costRow}>
-              <Input
-                placeholder="Cost estimate (₦)"
-                value={cost}
-                onChangeText={setCost}
-                keyboardType="decimal-pad"
-                style={styles.costInput}
-              />
-              <Button title="Set cost" onPress={setCostSubmit} loading={updatingCost} />
+          {(status === 'ACCEPTED' || status === 'IN_PROGRESS') && !booking.paidAt ? (
+            <View style={styles.costBreakdownBlock}>
+              <Text style={styles.costBreakdownTitle}>Job costing</Text>
+              <Input label="Parts / materials (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
+              <Input label="Labour / service (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
+              <Input label="Other fees (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
+              <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
+              <Button title="Save costing" onPress={saveCosting} loading={updatingCost} />
             </View>
           ) : null}
-          {booking.estimatedCost != null ? (
+          {booking.pricingSummary?.customerTotalNaira != null ? (
+            <Text style={styles.cost}>
+              Total payable: ₦{Number(booking.pricingSummary.customerTotalNaira).toLocaleString()}
+            </Text>
+          ) : booking.estimatedCost != null ? (
             <Text style={styles.cost}>Agreed estimate: ₦{Number(booking.estimatedCost).toLocaleString()}</Text>
           ) : null}
         </BookingDetailAccordion>
@@ -355,24 +388,20 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 <Text style={styles.quoteStatus}>Status: {myQuote.status}</Text>
                 {myQuote.status === 'PENDING' ? (
                   <>
-                    <Input
-                      label="Update price (₦)"
-                      value={quotePrice}
-                      onChangeText={setQuotePrice}
-                      keyboardType="decimal-pad"
-                    />
+                    <Input label="Parts (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
+                    <Input label="Labour (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
+                    <Input label="Other (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
+                    <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
                     <Button title="Update quote" onPress={updateQuote} loading={updatingQuote} />
                   </>
                 ) : null}
               </View>
             ) : (
               <>
-                <Input
-                  label="Your price (₦)"
-                  value={quotePrice}
-                  onChangeText={setQuotePrice}
-                  keyboardType="decimal-pad"
-                />
+                <Input label="Parts (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
+                <Input label="Labour (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
+                <Input label="Other (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
+                <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
                 <TextInput
                   style={styles.quoteMessageInput}
                   value={quoteMessage}
@@ -645,6 +674,9 @@ const styles = StyleSheet.create({
   },
   costRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 16 },
   costInput: { flex: 1, marginBottom: 0 },
+  costBreakdownBlock: { marginTop: 16, gap: 4 },
+  costBreakdownTitle: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.neutral[800], marginBottom: 8 },
+  costTotal: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.primary[700], marginVertical: 8 },
   cost: { fontSize: 17, fontWeight: '700', color: colors.text, marginTop: 12 },
   locationBlock: { marginTop: 4 },
   locationAddress: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },

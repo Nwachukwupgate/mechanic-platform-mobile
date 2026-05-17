@@ -22,7 +22,7 @@ import { MechanicStack } from './MechanicStack'
 SplashScreen.preventAutoHideAsync()
 
 export function RootNavigator() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
     Outfit_700Bold,
@@ -37,6 +37,8 @@ export function RootNavigator() {
   useSyncExpoPushToken(user, isAuthenticated)
 
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null)
+  const fontsReady = fontsLoaded || fontError != null
+  const appReady = hydrated && onboardingDone !== null && fontsReady
 
   useEffect(() => {
     hydrate()
@@ -44,15 +46,25 @@ export function RootNavigator() {
 
   useEffect(() => {
     if (!hydrated) return
-    hasCompletedOnboarding().then(setOnboardingDone)
+    hasCompletedOnboarding()
+      .then(setOnboardingDone)
+      .catch(() => setOnboardingDone(false))
   }, [hydrated])
 
   useEffect(() => {
-    if (!hydrated || onboardingDone === null || !fontsLoaded) return
-    SplashScreen.hideAsync()
-  }, [hydrated, onboardingDone, fontsLoaded])
+    if (!appReady) return
+    SplashScreen.hideAsync().catch(() => {})
+  }, [appReady])
 
-  if (!hydrated || onboardingDone === null || !fontsLoaded) {
+  /** Never leave the native splash up indefinitely if fonts or storage hang. */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {})
+    }, 10_000)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!appReady) {
     return null
   }
 

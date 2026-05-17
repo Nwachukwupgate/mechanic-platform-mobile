@@ -34,6 +34,7 @@ import { reverseGeocode } from '../../services/geocoding'
 import { MECHANIC_VEHICLE_TYPES, EXPERTISE_OPTIONS } from '../../constants/mechanic'
 import { CAR_BRANDS } from '../../constants/vehicles'
 import { colors } from '../../theme/colors'
+import { fonts } from '../../theme/fonts'
 import { gradients } from '../../theme/gradients'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
@@ -795,9 +796,34 @@ export function MechanicProfileScreen() {
               onChangeText={(t) => setForm((f) => ({ ...f, address: t }))}
               style={styles.inputSpaced}
             />
+            <Text style={styles.cityStateIntro}>
+              City and state — tap each box below and type (same as a normal form field).
+            </Text>
             <View style={styles.row}>
-              <Input label="City" value={form.city} onChangeText={(t) => setForm((f) => ({ ...f, city: t }))} style={styles.half} />
-              <Input label="State" value={form.state} onChangeText={(t) => setForm((f) => ({ ...f, state: t }))} style={styles.half} />
+              <View style={styles.cityStateCol}>
+                <Input
+                  label="City"
+                  labelStyle={styles.cityStateLabel}
+                  value={form.city}
+                  onChangeText={(t) => setForm((f) => ({ ...f, city: t }))}
+                  placeholder="e.g. Ikeja"
+                  placeholderTextColor={colors.neutral[500]}
+                  autoCapitalize="words"
+                  style={styles.cityStateInput}
+                />
+              </View>
+              <View style={styles.cityStateCol}>
+                <Input
+                  label="State"
+                  labelStyle={styles.cityStateLabel}
+                  value={form.state}
+                  onChangeText={(t) => setForm((f) => ({ ...f, state: t }))}
+                  placeholder="e.g. Lagos"
+                  placeholderTextColor={colors.neutral[500]}
+                  autoCapitalize="words"
+                  style={styles.cityStateInput}
+                />
+              </View>
             </View>
             <Input label="Zip code" value={form.zipCode} onChangeText={(t) => setForm((f) => ({ ...f, zipCode: t }))} style={styles.inputSpaced} />
           </View>
@@ -1165,8 +1191,33 @@ const styles = StyleSheet.create({
   selectChipText: { fontSize: 15, color: colors.text },
   hintText: { fontSize: 12, color: colors.neutral[500], marginTop: 4, marginBottom: 4 },
   formBtn: { marginTop: 12 },
-  row: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  half: { flex: 1 },
+  row: { flexDirection: 'row', gap: 12, marginTop: 8, alignItems: 'stretch' },
+  cityStateIntro: {
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  cityStateCol: { flex: 1, minWidth: 0 },
+  cityStateLabel: {
+    fontSize: 15,
+    fontFamily: fonts.semiBold,
+    color: colors.brand.forest,
+    marginBottom: 8,
+  },
+  cityStateInput: {
+    minHeight: 60,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    fontSize: 18,
+    lineHeight: 24,
+    borderWidth: 2,
+    borderColor: colors.primary[300],
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+  },
   link: { fontSize: 15, color: colors.primary[600], marginBottom: 10 },
   certBtn: { marginTop: 10 },
   err: { color: colors.accent.red, fontSize: 14, marginTop: 14 },

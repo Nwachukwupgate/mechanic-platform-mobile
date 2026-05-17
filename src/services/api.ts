@@ -65,6 +65,12 @@ export const configAPI = {
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token
   if (token) config.headers.Authorization = `Bearer ${token}`
+  // Let the native stack set multipart boundary (default instance header is application/json).
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const h = config.headers as { delete?: (key: string) => void } & Record<string, unknown>
+    if (h && typeof h.delete === 'function') h.delete('Content-Type')
+    else if (h) delete h['Content-Type']
+  }
   return config
 })
 
@@ -179,16 +185,12 @@ export const mechanicsAPI = {
   uploadCertificate: (file: File | { uri: string; name: string; type: string }) => {
     const formData = new FormData()
     formData.append('file', file as any)
-    return api.post<{ certificateUrl: string }>('/mechanics/me/upload-certificate', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    return api.post<{ certificateUrl: string }>('/mechanics/me/upload-certificate', formData)
   },
   uploadAvatar: (file: File | { uri: string; name: string; type: string }) => {
     const formData = new FormData()
     formData.append('file', file as any)
-    return api.post<{ avatarUrl: string }>('/mechanics/me/upload-avatar', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    return api.post<{ avatarUrl: string }>('/mechanics/me/upload-avatar', formData)
   },
   listBankAccounts: () =>
     api.get<
@@ -269,17 +271,34 @@ export const bookingsAPI = {
     api.put(`/bookings/${id}/status`, { status }),
   updateCost: (id: string, cost: number) =>
     api.put(`/bookings/${id}/cost`, { cost }),
+  upsertInvoice: (
+    id: string,
+    data: { partsCost: number; labourCost: number; otherFees?: number; notes?: string }
+  ) => api.put(`/bookings/${id}/invoice`, data),
+  submitInvoice: (id: string) => api.put(`/bookings/${id}/invoice/submit`),
+  acceptInvoice: (id: string) => api.put(`/bookings/${id}/invoice/accept`),
   getOpenRequests: (radius?: number) =>
     api.get('/bookings/open-requests', { params: radius != null ? { radius } : {} }),
   getQuotes: (bookingId: string) => api.get(`/bookings/${bookingId}/quotes`),
   createQuote: (
     bookingId: string,
-    data: { proposedPrice: number; message?: string }
+    data: {
+      proposedPrice?: number
+      partsCost?: number
+      labourCost?: number
+      otherFees?: number
+      message?: string
+    }
   ) => api.post(`/bookings/${bookingId}/quotes`, data),
   updateQuote: (
     bookingId: string,
     quoteId: string,
-    data: { proposedPrice: number }
+    data: {
+      proposedPrice?: number
+      partsCost?: number
+      labourCost?: number
+      otherFees?: number
+    }
   ) => api.put(`/bookings/${bookingId}/quotes/${quoteId}`, data),
   withdrawQuote: (bookingId: string, quoteId: string) =>
     api.put(`/bookings/${bookingId}/quotes/${quoteId}/withdraw`),
@@ -308,9 +327,7 @@ export const bookingsAPI = {
     files.forEach((f) => {
       form.append('files', { uri: f.uri, name: f.name, type: f.type } as any)
     })
-    return api.post(`/bookings/${bookingId}/photos`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    return api.post(`/bookings/${bookingId}/photos`, form)
   },
 }
 

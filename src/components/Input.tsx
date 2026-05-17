@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { TextInput, View, Text, StyleSheet, TextInputProps, TouchableOpacity } from 'react-native'
+import { TextInput, View, Text, StyleSheet, TextInputProps, TouchableOpacity, TextStyle } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { colors } from '../theme/colors'
 import { fonts } from '../theme/fonts'
@@ -13,6 +13,8 @@ type Props = TextInputProps & {
   hintTitle?: string
   error?: string
   showPasswordToggle?: boolean
+  /** Merged after the default label style (e.g. larger section fields). */
+  labelStyle?: TextStyle
 }
 
 export function Input({
@@ -21,6 +23,7 @@ export function Input({
   hintTitle,
   error,
   style,
+  labelStyle,
   showPasswordToggle,
   secureTextEntry,
   ...props
@@ -33,10 +36,10 @@ export function Input({
 
   return (
     <View style={styles.wrap}>
-      {label && !hint ? <Text style={styles.label}>{label}</Text> : null}
+      {label && !hint ? <Text style={[styles.label, labelStyle]}>{label}</Text> : null}
       {label && hint ? (
         <View style={styles.labelRow}>
-          <Text style={[styles.label, styles.labelInRow]}>{label}</Text>
+          <Text style={[styles.label, styles.labelInRow, labelStyle]}>{label}</Text>
           <InfoHint title={hintTitleResolved} message={hint} iconSize={20} />
         </View>
       ) : null}

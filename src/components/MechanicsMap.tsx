@@ -8,6 +8,8 @@ export type MechanicMarker = {
   latitude: number;
   longitude: number;
   title: string;
+  /** Shown in map callout (e.g. distance + proximity hints). */
+  description?: string;
 };
 
 type MechanicsMapProps = {
@@ -59,6 +61,7 @@ export function MechanicsMap({ userLat, userLng, mechanics, style }: MechanicsMa
             key={m.id}
             coordinate={{ latitude: m.latitude, longitude: m.longitude }}
             title={m.title}
+            description={m.description}
             pinColor={colors.accent.green}
           />
         ))}

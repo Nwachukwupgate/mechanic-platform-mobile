@@ -64,11 +64,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     AsyncStorage.getItem(STORAGE_KEYS.AUTH)
       .then((raw) => {
         if (!raw) return
-        const { user, token, isAuthenticated } = JSON.parse(raw)
-        if (user && token) set({ user, token, isAuthenticated: isAuthenticated !== false })
+        try {
+          const { user, token, isAuthenticated } = JSON.parse(raw)
+          if (user && token) set({ user, token, isAuthenticated: isAuthenticated !== false })
+        } catch {
+          void AsyncStorage.removeItem(STORAGE_KEYS.AUTH)
+        }
       })
       .catch(() => {})
-      .then(() => {
+      .finally(() => {
         set({ hydrated: true })
       })
   },

@@ -515,11 +515,14 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                         ₦{paidDisplayAmount.toLocaleString()}
                       </Text>
                     </>
-                  ) : booking.estimatedCost != null && !showReceipt ? (
+                  ) : (booking.pricingSummary?.customerTotalNaira ?? booking.estimatedCost) != null &&
+                    !showReceipt ? (
                     <>
-                      <Text style={styles.heroMoneyLabel}>ESTIMATE</Text>
+                      <Text style={styles.heroMoneyLabel}>TOTAL</Text>
                       <Text style={styles.heroMoneyValueMuted}>
-                        ₦{Number(booking.estimatedCost).toLocaleString()}
+                        ₦{Number(
+                          booking.pricingSummary?.customerTotalNaira ?? booking.estimatedCost
+                        ).toLocaleString()}
                       </Text>
                     </>
                   ) : null}
@@ -670,7 +673,16 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   {pendingQuotes.map((q: any) => (
                     <View key={q.id} style={styles.quoteCard}>
                       <Text style={styles.quoteMech}>{q.mechanic?.companyName ?? 'Mechanic'}</Text>
-                      <Text style={styles.quotePrice}>₦{Number(q.proposedPrice).toLocaleString()}</Text>
+                      <Text style={styles.quotePrice}>
+                        ₦{Number(q.customerTotalNaira ?? q.proposedPrice).toLocaleString()}
+                      </Text>
+                      {(q.partsNaira > 0 || q.labourNaira > 0) && (
+                        <Text style={styles.quoteBreakdown}>
+                          {q.partsNaira > 0 ? `Parts ₦${Number(q.partsNaira).toLocaleString()}` : ''}
+                          {q.partsNaira > 0 && q.labourNaira > 0 ? ' · ' : ''}
+                          {q.labourNaira > 0 ? `Labour ₦${Number(q.labourNaira).toLocaleString()}` : ''}
+                        </Text>
+                      )}
                       {q.message ? (
                         <Text style={styles.quoteMessage}>{q.message}</Text>
                       ) : null}
@@ -1015,13 +1027,17 @@ function mechanicInitials(m: any): string {
 
 function mechanicPhone(m: any): string | undefined {
   if (!m || typeof m !== 'object') return undefined
+  const p = m.profile && typeof m.profile === 'object' ? m.profile : null
   const raw =
     m.phone ??
     m.phoneNumber ??
     m.mobile ??
     m.contactPhone ??
     m.workshopPhone ??
-    m.ownerPhone
+    m.ownerPhone ??
+    p?.phone ??
+    p?.phoneNumber ??
+    p?.mobile
   return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined
 }
 
@@ -1219,6 +1235,7 @@ const styles = StyleSheet.create({
   quoteCardInner: { gap: 2 },
   quoteMech: { fontSize: 16, fontWeight: '600', color: colors.text },
   quotePrice: { fontSize: 19, fontWeight: '700', color: colors.primary[600], marginTop: 8 },
+  quoteBreakdown: { fontSize: 12, color: colors.neutral[500], marginTop: 4 },
   quoteMessage: { fontSize: 14, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
   quoteActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
   quoteBtn: { flex: 1 },

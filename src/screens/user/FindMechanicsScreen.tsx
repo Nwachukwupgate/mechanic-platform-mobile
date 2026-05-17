@@ -17,6 +17,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { vehiclesAPI, faultsAPI, bookingsAPI, ratingsAPI, getApiErrorMessage } from '../../services/api'
+import { sortFaultsForIssuePicker } from '../../constants/faults'
+import {
+  nearestMechanicIdsForBadge,
+  isVeryCloseStraightLine,
+} from '../../utils/mechanicProximityLabels'
 import { reverseGeocode, searchAddress, type ReverseGeocodeResult, type GeocodeSearchResult } from '../../services/geocoding'
 import { useCurrentLocation } from '../../utils/location'
 import { colors } from '../../theme/colors'
@@ -116,6 +121,8 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
   const [addressSuggestions, setAddressSuggestions] = useState<GeocodeSearchResult[]>([])
   const [addressLookupLoading, setAddressLookupLoading] = useState(false)
 
+  const faultsSorted = useMemo(() => sortFaultsForIssuePicker(faults), [faults])
+
   const loadVehicleAndFaults = useCallback(async () => {
     const showSpinner = !catalogLoadedOnce.current
     if (showSpinner) setLoading(true)
@@ -199,6 +206,8 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
     const [picked] = next.splice(idx, 1)
     return [picked, ...next]
   }, [mechanics, preferredMechanicId])
+
+  const nearestBadgeIds = useMemo(() => nearestMechanicIdsForBadge(displayMechanics), [displayMechanics])
 
   const lookupAddress = async () => {
     const q = addressQuery.trim()
@@ -379,22 +388,32 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
     }
   }
 
-  const mechanicMarkers: MechanicMarker[] = displayMechanics
-    .filter((m) => {
-      const lat = m.workshopLat ?? m.mechanic?.workshopLat
-      const lng = m.workshopLng ?? m.mechanic?.workshopLng
-      return typeof lat === 'number' && typeof lng === 'number'
-    })
-    .map((m) => {
-      const lat = m.workshopLat ?? m.mechanic?.workshopLat ?? 0
-      const lng = m.workshopLng ?? m.mechanic?.workshopLng ?? 0
-      return {
-        id: m.mechanic?.id ?? '',
-        latitude: lat,
-        longitude: lng,
-        title: m.mechanic?.companyName || 'Garage',
-      }
-    })
+  const mechanicMarkers: MechanicMarker[] = useMemo(() => {
+    return displayMechanics
+      .filter((m) => {
+        const lat = m.workshopLat ?? m.mechanic?.workshopLat
+        const lng = m.workshopLng ?? m.mechanic?.workshopLng
+        return typeof lat === 'number' && typeof lng === 'number'
+      })
+      .map((m) => {
+        const lat = m.workshopLat ?? m.mechanic?.workshopLat ?? 0
+        const lng = m.workshopLng ?? m.mechanic?.workshopLng ?? 0
+        const id = m.mechanic?.id ?? ''
+        const parts: string[] = []
+        if (typeof m.distanceKm === 'number' && !Number.isNaN(m.distanceKm)) {
+          parts.push(`${m.distanceKm.toFixed(1)} km (straight-line)`)
+        }
+        if (nearestBadgeIds.has(id)) parts.push('Nearest')
+        if (isVeryCloseStraightLine(m.distanceKm)) parts.push('Very close')
+        return {
+          id,
+          latitude: lat,
+          longitude: lng,
+          title: m.mechanic?.companyName || 'Garage',
+          description: parts.length > 0 ? parts.join(' · ') : undefined,
+        }
+      })
+  }, [displayMechanics, nearestBadgeIds])
 
   if (loading) return <LoadingOverlay />
 
@@ -575,8 +594,11 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
             ))}
           </ScrollView>
               <SectionHeader icon="construct" title="Issue" />
+          <Text style={styles.filterHint}>
+            If nothing fits, pick &quot;Other electrical&quot; or &quot;Other mechanical&quot; and describe it below (and add photos if you can).
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
-            {faults.map((f) => (
+            {faultsSorted.map((f) => (
               <TouchableOpacity
                 key={f.id}
                 onPress={() => setSelectedFault(f.id)}
@@ -642,7 +664,12 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
           <AnimatedFadeIn delay={40}>
             <View style={[styles.blockPad, styles.blockPadTight]}>
               <View style={styles.resultsHeader}>
-                <Text style={styles.resultsTitle}>Nearby mechanics</Text>
+                <View style={styles.resultsTitleBlock}>
+                  <Text style={styles.resultsTitle}>Nearby mechanics</Text>
+                  <Text style={styles.resultsProximityNote} numberOfLines={2}>
+                    Straight-line km, not drive time.
+                  </Text>
+                </View>
                 <View style={styles.toggleShell}>
                   <TouchableOpacity
                     onPress={() => setViewMode('list')}
@@ -680,9 +707,20 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
               return (
                 <Card key={mid} style={styles.mechanicCard}>
                   {typeof m.distanceKm === 'number' && !Number.isNaN(m.distanceKm) ? (
-                    <View style={styles.mechanicDistBadge}>
-                      <Ionicons name="navigate-outline" size={12} color={colors.brand.forest} />
-                      <Text style={styles.mechanicDistText}>{m.distanceKm.toFixed(1)} km</Text>
+                    <View style={styles.mechanicDistCorner}>
+                      <View style={styles.mechanicDistBadge}>
+                        <Ionicons name="navigate-outline" size={12} color={colors.brand.forest} />
+                        <Text style={styles.mechanicDistText}>{m.distanceKm.toFixed(1)} km</Text>
+                      </View>
+                      {mid && nearestBadgeIds.has(mid) ? (
+                        <View style={styles.nearestPill}>
+                          <Ionicons name="location" size={11} color={colors.accent.amber} />
+                          <Text style={styles.nearestPillText}>Nearest</Text>
+                        </View>
+                      ) : null}
+                      {isVeryCloseStraightLine(m.distanceKm) ? (
+                        <Text style={styles.proximityCaption}>Very close · straight-line</Text>
+                      ) : null}
                     </View>
                   ) : null}
                   <TouchableOpacity
@@ -1094,12 +1132,18 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
+  resultsTitleBlock: { flex: 1, minWidth: 140 },
   resultsTitle: {
     ...typography.section,
     fontSize: 17,
     color: colors.brand.forest,
-    flex: 1,
-    minWidth: 140,
+  },
+  resultsProximityNote: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 16,
   },
   toggleShell: {
     flexDirection: 'row',
@@ -1149,10 +1193,16 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
   },
-  mechanicDistBadge: {
+  mechanicDistCorner: {
     position: 'absolute',
     top: 14,
     right: 14,
+    alignItems: 'flex-end',
+    gap: 6,
+    zIndex: 1,
+    maxWidth: '52%',
+  },
+  mechanicDistBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -1162,11 +1212,29 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.primary[100],
-    zIndex: 1,
+  },
+  nearestPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+  },
+  nearestPillText: { fontFamily: fonts.semiBold, fontSize: 11, color: colors.brand.forest },
+  proximityCaption: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'right',
+    lineHeight: 14,
   },
   mechanicDistText: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.brand.forest },
   mechanicTop: { flexDirection: 'row', alignItems: 'flex-start' },
-  mechanicTopWithBadge: { paddingRight: 76 },
+  mechanicTopWithBadge: { paddingRight: 116 },
   avatar: { width: 58, height: 58, borderRadius: 16, borderWidth: 1, borderColor: colors.neutral[100] },
   avatarPlaceholder: {
     width: 58,
