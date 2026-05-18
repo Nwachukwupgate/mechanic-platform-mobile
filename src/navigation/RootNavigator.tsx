@@ -13,6 +13,8 @@ import {
 } from '@expo-google-fonts/space-grotesk'
 import { useAuthStore } from '../store/authStore'
 import { useSyncExpoPushToken } from '../hooks/useSyncExpoPushToken'
+import { usePushNotificationNavigation } from '../hooks/usePushNotificationNavigation'
+import { navigationRef } from './navigationRef'
 import { hasCompletedOnboarding } from '../utils/onboarding'
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen'
 import { AuthStack } from './AuthStack'
@@ -35,6 +37,7 @@ export function RootNavigator() {
   const hydrate = useAuthStore((s) => s.hydrate)
 
   useSyncExpoPushToken(user, isAuthenticated)
+  usePushNotificationNavigation(isAuthenticated)
 
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null)
   const fontsReady = fontsLoaded || fontError != null
@@ -78,7 +81,7 @@ export function RootNavigator() {
 
   if (!isAuthenticated || !user) {
     return (
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <AuthStack />
       </NavigationContainer>
     )
@@ -86,14 +89,14 @@ export function RootNavigator() {
 
   if (user.role === 'USER') {
     return (
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <UserStack />
       </NavigationContainer>
     )
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <MechanicStack />
     </NavigationContainer>
   )

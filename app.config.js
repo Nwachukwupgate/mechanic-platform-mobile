@@ -25,7 +25,12 @@ module.exports = {
     plugins: [
       ...(base.plugins || []),
       '@react-native-community/datetimepicker',
-      'expo-notifications',
+      [
+        'expo-notifications',
+        {
+          color: '#16a34a',
+        },
+      ],
       [
         'expo-location',
         {

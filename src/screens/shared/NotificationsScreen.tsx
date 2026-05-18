@@ -126,8 +126,8 @@ export function NotificationsScreen({ navigation }: { navigation: any }) {
             <Ionicons name="notifications-off-outline" size={40} color={colors.neutral[400]} />
             <Text style={styles.emptyTitle}>You’re caught up</Text>
             <Text style={styles.emptyText}>
-              Quotes, status changes, and payment updates will show here when something happens on
-              your jobs.
+              Quotes, messages, status changes, and payment updates will show here when something
+              happens on your jobs.
             </Text>
           </View>
         }
@@ -137,7 +137,7 @@ export function NotificationsScreen({ navigation }: { navigation: any }) {
               <View style={styles.cardRow}>
                 <View style={styles.iconWrap}>
                   <Ionicons
-                    name={item.readAt ? 'mail-open-outline' : 'mail-unread-outline'}
+                    name={iconForType(item.type, !!item.readAt)}
                     size={22}
                     color={item.readAt ? colors.neutral[500] : colors.brand.primary}
                   />
@@ -157,6 +157,14 @@ export function NotificationsScreen({ navigation }: { navigation: any }) {
       />
     </View>
   )
+}
+
+function iconForType(type: string, read: boolean): keyof typeof Ionicons.glyphMap {
+  const t = type.toUpperCase()
+  if (t === 'MESSAGE') return read ? 'chatbubble-outline' : 'chatbubble'
+  if (t.startsWith('QUOTE')) return read ? 'pricetag-outline' : 'pricetags'
+  if (t === 'BOOKING_STATUS') return read ? 'car-outline' : 'car'
+  return read ? 'notifications-outline' : 'notifications'
 }
 
 function formatTime(iso: string) {

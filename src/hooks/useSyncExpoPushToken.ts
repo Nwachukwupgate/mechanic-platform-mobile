@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import {
-  configureAndroidNotificationChannel,
-  ensurePushPermissions,
+  configureAndroidNotificationChannels,
+  requestPushPermissionsWithPrimer,
   getExpoPushTokenOrNull,
 } from '../services/pushNotifications'
 import { usersAPI, mechanicsAPI } from '../services/api'
@@ -24,8 +24,8 @@ export function useSyncExpoPushToken(user: User | null | undefined, isAuthentica
     let cancelled = false
 
     void (async () => {
-      configureAndroidNotificationChannel()
-      const granted = await ensurePushPermissions()
+      configureAndroidNotificationChannels()
+      const granted = await requestPushPermissionsWithPrimer()
       if (!granted || cancelled) return
 
       const expoToken = await getExpoPushTokenOrNull()
