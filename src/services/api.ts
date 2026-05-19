@@ -288,6 +288,7 @@ export const bookingsAPI = {
       labourCost?: number
       otherFees?: number
       message?: string
+      quoteType?: 'STANDARD' | 'INSPECTION'
     }
   ) => api.post(`/bookings/${bookingId}/quotes`, data),
   updateQuote: (

@@ -24,6 +24,11 @@ import {
 } from '../../utils/mechanicProximityLabels'
 import { reverseGeocode, searchAddress, type ReverseGeocodeResult, type GeocodeSearchResult } from '../../services/geocoding'
 import { useCurrentLocation, promptOpenLocationSettings } from '../../utils/location'
+import {
+  validateJobPostingInput,
+  MIN_OPEN_JOB_DESCRIPTION_LENGTH,
+  RECOMMENDED_JOB_PHOTOS,
+} from '../../utils/jobPostingValidation'
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { typography } from '../../theme/typography'
@@ -344,8 +349,30 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
     }
   }
 
+  const confirmJobPosting = async (isOpenBoard: boolean): Promise<boolean> => {
+    const fault = faults.find((f) => f.id === selectedFault)
+    const message = validateJobPostingInput({
+      description,
+      photoCount: jobPhotos.length,
+      faultName: fault?.name,
+      isOpenBoard,
+    })
+    if (!message) return true
+    if (message.startsWith('We recommend')) {
+      return new Promise((resolve) => {
+        Alert.alert('Add photos?', message, [
+          { text: 'Add photos', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Continue anyway', onPress: () => resolve(true) },
+        ])
+      })
+    }
+    Alert.alert('More detail needed', message)
+    return false
+  }
+
   const requestService = async (mechanicId: string) => {
     if (locationState.lat == null || locationState.lng == null) return
+    if (!(await confirmJobPosting(false))) return
     setRequestingId(mechanicId)
     try {
       const res = await bookingsAPI.create({
@@ -376,6 +403,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
       Alert.alert('Location required', 'Tap "Use my location" and allow access, then try again.')
       return
     }
+    if (!(await confirmJobPosting(true))) return
     setPostingJob(true)
     try {
       const res = await bookingsAPI.create({
@@ -570,8 +598,11 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
         <AnimatedFadeIn delay={preferredMechanicId ? 160 : 130}>
           <View style={[styles.blockPad, styles.blockPadTight]}>
             <Card style={styles.surfaceCard}>
-              <SectionHeader icon="images" title="Photos (optional)" first />
-          <Text style={styles.filterHint}>Up to {MAX_JOB_PHOTOS} images (JPEG, PNG, WebP, max 5MB each)</Text>
+              <SectionHeader icon="images" title="Photos" first />
+          <Text style={styles.filterHint}>
+            Add at least {RECOMMENDED_JOB_PHOTOS} clear photos when you can. Mechanics quote from your notes and
+            images — they cannot call you on open jobs.
+          </Text>
           <View style={styles.jobPhotoRow}>
             {jobPhotos.map((p, idx) => (
               <View key={`${p.uri}-${idx}`} style={styles.jobPhotoWrap}>
@@ -616,10 +647,14 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
               </TouchableOpacity>
             ))}
           </ScrollView>
-              <SectionHeader icon="document-text" title="More detail (optional)" />
+              <SectionHeader icon="document-text" title="Describe the issue" />
+          <Text style={styles.filterHint}>
+            Required for quotes (min {MIN_OPEN_JOB_DESCRIPTION_LENGTH} characters). Include when it started, symptoms,
+            warning lights, and sounds.
+          </Text>
           <TextInput
             style={styles.notesInput}
-            placeholder="e.g. when it started, sounds, warning lights..."
+            placeholder="e.g. Grinding noise when braking from 60km/h, started last week, no warning lights..."
             placeholderTextColor={colors.neutral[400]}
             value={description}
             onChangeText={setDescription}

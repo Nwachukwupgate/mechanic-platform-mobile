@@ -20,6 +20,7 @@ import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } fr
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { canShowBookingContactPhone, customerPhone } from '../../utils/bookingContact'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
@@ -41,6 +42,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const [labourCost, setLabourCost] = useState('')
   const [otherFees, setOtherFees] = useState('')
   const [updatingCost, setUpdatingCost] = useState(false)
+  const [quoteType, setQuoteType] = useState<'STANDARD' | 'INSPECTION'>('STANDARD')
   const [quoteMessage, setQuoteMessage] = useState('')
   const [submittingQuote, setSubmittingQuote] = useState(false)
   const [updatingQuote, setUpdatingQuote] = useState(false)
@@ -78,6 +80,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       const mine = quotes.find((q: any) => q.mechanicId === currentUserId)
       setMyQuote(mine || null)
       if (mine) {
+        setQuoteType(mine.quoteType === 'INSPECTION' ? 'INSPECTION' : 'STANDARD')
         setPartsCost(String(mine.partsNaira ?? 0))
         setLabourCost(String(mine.labourNaira ?? mine.proposedPrice ?? ''))
         setOtherFees(String(mine.otherFeesNaira ?? 0))
@@ -149,17 +152,19 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const submitQuote = async () => {
-    const total = quoteTotal()
+    const isInspection = quoteType === 'INSPECTION'
+    const total = isInspection ? parseFloat(labourCost) || 0 : quoteTotal()
     if (total <= 0) {
-      Alert.alert('Required', 'Enter a valid cost breakdown')
+      Alert.alert('Required', isInspection ? 'Enter an inspection / diagnosis fee' : 'Enter a valid cost breakdown')
       return
     }
     setSubmittingQuote(true)
     try {
       await bookingsAPI.createQuote(id, {
-        partsCost: parseFloat(partsCost) || 0,
-        labourCost: parseFloat(labourCost) || 0,
-        otherFees: parseFloat(otherFees) || 0,
+        quoteType,
+        partsCost: isInspection ? 0 : parseFloat(partsCost) || 0,
+        labourCost: isInspection ? total : parseFloat(labourCost) || 0,
+        otherFees: isInspection ? 0 : parseFloat(otherFees) || 0,
         message: quoteMessage.trim() || undefined,
       })
       load()
@@ -241,7 +246,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       : booking.estimatedCost != null
         ? Number(booking.estimatedCost)
         : null
-  const custPhone = customerPhone(booking.user)
+  const custPhone = canShowBookingContactPhone(booking) ? customerPhone(booking.user) : undefined
 
   return (
     <View style={styles.container}>
@@ -376,13 +381,57 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
         {canQuoteWhileRequested ? (
           <BookingDetailAccordion
             title="Your quote & questions"
-            subtitle="Price the job, add a short note, and ask the customer anything you need before they accept"
+            subtitle="Price the job, ask questions, or offer an inspection visit before they accept"
             icon="pricetags-outline"
             iconVariant="amber"
             expanded={quoteAccordionExpanded}
             onToggle={() => setQuoteAccordionExpanded((v) => !v)}
           >
-            {myQuote ? (
+            <View style={styles.quoteTypeRow}>
+              <TouchableOpacity
+                style={[styles.quoteTypePill, quoteType === 'STANDARD' && styles.quoteTypePillActive]}
+                onPress={() => setQuoteType('STANDARD')}
+              >
+                <Text style={[styles.quoteTypeText, quoteType === 'STANDARD' && styles.quoteTypeTextActive]}>
+                  Full repair quote
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quoteTypePill, quoteType === 'INSPECTION' && styles.quoteTypePillActive]}
+                onPress={() => setQuoteType('INSPECTION')}
+              >
+                <Text style={[styles.quoteTypeText, quoteType === 'INSPECTION' && styles.quoteTypeTextActive]}>
+                  Inspection visit
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {quoteType === 'INSPECTION' ? (
+              <>
+                <Text style={styles.inspectionHint}>
+                  Charge a diagnosis fee to visit and inspect. You’ll submit the full repair quote after the on-site
+                  check.
+                </Text>
+                <Input
+                  label="Inspection / diagnosis fee (₦)"
+                  value={labourCost}
+                  onChangeText={setLabourCost}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={styles.quoteMessageInput}
+                  value={quoteMessage}
+                  onChangeText={setQuoteMessage}
+                  placeholder="Optional note (e.g. when you can visit)..."
+                  placeholderTextColor={colors.neutral[400]}
+                  multiline
+                />
+                <Button
+                  title={myQuote ? 'Update inspection quote' : 'Submit inspection quote'}
+                  onPress={submitQuote}
+                  loading={submittingQuote || updatingQuote}
+                />
+              </>
+            ) : myQuote ? (
               <View style={styles.quoteBlock}>
                 <Text style={styles.quotePrice}>₦{Number(myQuote.proposedPrice).toLocaleString()}</Text>
                 <Text style={styles.quoteStatus}>Status: {myQuote.status}</Text>
@@ -414,6 +463,9 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               </>
             )}
             <Text style={[styles.inlineSectionLabel, { marginTop: 18 }]}>Ask the customer</Text>
+            <Text style={styles.clarificationHint}>
+              Up to 3 questions per job. Answers appear here for all mechanics on open jobs.
+            </Text>
             <TextInput
               style={styles.clarificationInput}
               value={clarificationQuestion}
@@ -495,12 +547,6 @@ function customerInitials(u: any): string {
   const b = l[0] ?? ''
   const s = (a + b).toUpperCase()
   return s || '?'
-}
-
-function customerPhone(u: any): string | undefined {
-  if (!u || typeof u !== 'object') return undefined
-  const raw = u.phone ?? u.phoneNumber ?? u.mobile ?? u.contactPhone
-  return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined
 }
 
 function formatJobAddress(booking: any): string {
@@ -650,6 +696,35 @@ const styles = StyleSheet.create({
     minHeight: 72,
     marginTop: 10,
     color: colors.text,
+  },
+  quoteTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  quoteTypePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    backgroundColor: colors.surface,
+  },
+  quoteTypePillActive: {
+    borderColor: colors.brand.primary,
+    backgroundColor: colors.primary[50],
+  },
+  quoteTypeText: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary },
+  quoteTypeTextActive: { color: colors.brand.primary, fontFamily: fonts.semiBold },
+  inspectionHint: {
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  clarificationHint: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.neutral[500],
+    marginBottom: 8,
+    lineHeight: 18,
   },
   clarificationInput: {
     borderWidth: 1,

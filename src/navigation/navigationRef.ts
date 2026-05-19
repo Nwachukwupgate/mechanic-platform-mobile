@@ -1,6 +1,6 @@
-import { createNavigationContainerRef } from '@react-navigation/native'
+import { createNavigationContainerRef, type ParamListBase } from '@react-navigation/native'
 
-export const navigationRef = createNavigationContainerRef()
+export const navigationRef = createNavigationContainerRef<ParamListBase>()
 
 export function navigateFromNotificationData(
   data: Record<string, unknown> | undefined,
@@ -11,8 +11,8 @@ export function navigateFromNotificationData(
   if (!bookingId) return
 
   if (role === 'MECHANIC') {
-    navigationRef.navigate('MechanicBookingDetail' as never, { id: bookingId } as never)
+    navigationRef.navigate('MechanicBookingDetail', { id: bookingId })
   } else {
-    navigationRef.navigate('BookingDetail' as never, { id: bookingId } as never)
+    navigationRef.navigate('BookingDetail', { id: bookingId })
   }
 }

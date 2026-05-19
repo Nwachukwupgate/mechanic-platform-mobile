@@ -28,6 +28,8 @@ import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } fr
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { canShowBookingContactPhone, mechanicPhone } from '../../utils/bookingContact'
+import { isQuoteInspection, quoteTypeLabel } from '../../utils/jobPostingValidation'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
@@ -479,7 +481,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
         : null
 
   const bookingStatusBadge = bookingStatusBadgeColors(booking.status)
-  const mechPhone = mechanicPhone(booking.mechanic)
+  const mechPhone = canShowBookingContactPhone(booking) ? mechanicPhone(booking.mechanic) : undefined
 
   const stickyPad =
     primaryBar.kind === 'none'
@@ -673,10 +675,21 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   {pendingQuotes.map((q: any) => (
                     <View key={q.id} style={styles.quoteCard}>
                       <Text style={styles.quoteMech}>{q.mechanic?.companyName ?? 'Mechanic'}</Text>
+                      {isQuoteInspection(q) ? (
+                        <View style={styles.quoteTypeBadge}>
+                          <Text style={styles.quoteTypeBadgeText}>{quoteTypeLabel(q)}</Text>
+                        </View>
+                      ) : null}
                       <Text style={styles.quotePrice}>
                         ₦{Number(q.customerTotalNaira ?? q.proposedPrice).toLocaleString()}
+                        {isQuoteInspection(q) ? ' inspection fee' : ''}
                       </Text>
-                      {(q.partsNaira > 0 || q.labourNaira > 0) && (
+                      {isQuoteInspection(q) ? (
+                        <Text style={styles.quoteInspectionNote}>
+                          Full repair quote after the mechanic checks your vehicle on site.
+                        </Text>
+                      ) : null}
+                      {(q.partsNaira > 0 || q.labourNaira > 0) && !isQuoteInspection(q) && (
                         <Text style={styles.quoteBreakdown}>
                           {q.partsNaira > 0 ? `Parts ₦${Number(q.partsNaira).toLocaleString()}` : ''}
                           {q.partsNaira > 0 && q.labourNaira > 0 ? ' · ' : ''}
@@ -1025,22 +1038,6 @@ function mechanicInitials(m: any): string {
   return co.toUpperCase() || '?'
 }
 
-function mechanicPhone(m: any): string | undefined {
-  if (!m || typeof m !== 'object') return undefined
-  const p = m.profile && typeof m.profile === 'object' ? m.profile : null
-  const raw =
-    m.phone ??
-    m.phoneNumber ??
-    m.mobile ??
-    m.contactPhone ??
-    m.workshopPhone ??
-    m.ownerPhone ??
-    p?.phone ??
-    p?.phoneNumber ??
-    p?.mobile
-  return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined
-}
-
 function formatJobAddress(booking: any): string {
   if (booking.locationAddress && typeof booking.locationAddress === 'string') return booking.locationAddress
   const parts = [booking.locationStreet, booking.locationCity, booking.locationState].filter(Boolean)
@@ -1234,6 +1231,16 @@ const styles = StyleSheet.create({
   },
   quoteCardInner: { gap: 2 },
   quoteMech: { fontSize: 16, fontWeight: '600', color: colors.text },
+  quoteTypeBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: colors.primary[50],
+  },
+  quoteTypeBadgeText: { fontSize: 12, fontWeight: '600', color: colors.primary[700] },
+  quoteInspectionNote: { fontSize: 13, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
   quotePrice: { fontSize: 19, fontWeight: '700', color: colors.primary[600], marginTop: 8 },
   quoteBreakdown: { fontSize: 12, color: colors.neutral[500], marginTop: 4 },
   quoteMessage: { fontSize: 14, color: colors.textSecondary, marginTop: 10, lineHeight: 20 },
