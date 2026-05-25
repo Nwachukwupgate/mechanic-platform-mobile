@@ -12,6 +12,7 @@ import {
   Image,
   TextInput,
   Switch,
+  Linking,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
@@ -26,9 +27,9 @@ import { reverseGeocode, searchAddress, type ReverseGeocodeResult, type GeocodeS
 import { useCurrentLocation, promptOpenLocationSettings } from '../../utils/location'
 import {
   validateJobPostingInput,
-  MIN_OPEN_JOB_DESCRIPTION_LENGTH,
   RECOMMENDED_JOB_PHOTOS,
 } from '../../utils/jobPostingValidation'
+import { mechanicPhone } from '../../utils/bookingContact'
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { typography } from '../../theme/typography'
@@ -88,6 +89,7 @@ type MechanicResult = {
   workshopAddress?: string
   workshopLat?: number
   workshopLng?: number
+  phone?: string
 }
 
 export function FindMechanicsScreen({ navigation, route = {} }: { navigation: any; route?: any }) {
@@ -601,7 +603,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
               <SectionHeader icon="images" title="Photos" first />
           <Text style={styles.filterHint}>
             Add at least {RECOMMENDED_JOB_PHOTOS} clear photos when you can. Mechanics quote from your notes and
-            images — they cannot call you on open jobs.
+            images — you can also call them while comparing quotes.
           </Text>
           <View style={styles.jobPhotoRow}>
             {jobPhotos.map((p, idx) => (
@@ -649,8 +651,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
           </ScrollView>
               <SectionHeader icon="document-text" title="Describe the issue" />
           <Text style={styles.filterHint}>
-            Required for quotes (min {MIN_OPEN_JOB_DESCRIPTION_LENGTH} characters). Include when it started, symptoms,
-            warning lights, and sounds.
+            Optional — include when it started, symptoms, warning lights, and sounds if you can.
           </Text>
           <TextInput
             style={styles.notesInput}
@@ -747,6 +748,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
                 {displayMechanics.map((m: MechanicResult) => {
               const mid = m.mechanic?.id
               const rating = mid ? ratings[mid] : undefined
+              const garagePhone = mechanicPhone(m)
               return (
                 <Card key={mid} style={styles.mechanicCard}>
                   {typeof m.distanceKm === 'number' && !Number.isNaN(m.distanceKm) ? (
@@ -863,6 +865,16 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
                   ) : null}
                   {m.workshopAddress || m.mechanic?.workshopAddress ? (
                     <Text style={styles.addr} numberOfLines={1}>{m.workshopAddress || m.mechanic?.workshopAddress}</Text>
+                  ) : null}
+                  {garagePhone ? (
+                    <TouchableOpacity
+                      style={styles.phoneRow}
+                      onPress={() => Linking.openURL(`tel:${garagePhone.replace(/\s/g, '')}`)}
+                      accessibilityLabel="Call garage"
+                    >
+                      <Ionicons name="call-outline" size={16} color={colors.primary[600]} />
+                      <Text style={styles.phoneText}>{garagePhone}</Text>
+                    </TouchableOpacity>
                   ) : null}
                   </TouchableOpacity>
                   <Button
@@ -1330,6 +1342,13 @@ const styles = StyleSheet.create({
   },
   expertiseChipText: { fontSize: 12, fontFamily: fonts.semiBold, color: colors.primary[800] },
   addr: { fontSize: 13, fontFamily: fonts.regular, color: colors.neutral[500], marginTop: 10 },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  phoneText: { fontSize: 14, fontFamily: fonts.semiBold, color: colors.primary[600] },
   reqBtn: { marginTop: 16 },
 
   emptySection: { alignItems: 'center', paddingVertical: 36, marginTop: 8 },

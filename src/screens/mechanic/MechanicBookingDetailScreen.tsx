@@ -42,6 +42,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const [labourCost, setLabourCost] = useState('')
   const [otherFees, setOtherFees] = useState('')
   const [updatingCost, setUpdatingCost] = useState(false)
+  const [submittingInvoice, setSubmittingInvoice] = useState(false)
   const [quoteType, setQuoteType] = useState<'STANDARD' | 'INSPECTION'>('STANDARD')
   const [quoteMessage, setQuoteMessage] = useState('')
   const [submittingQuote, setSubmittingQuote] = useState(false)
@@ -151,6 +152,19 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     }
   }
 
+  const submitRepairInvoice = async () => {
+    setSubmittingInvoice(true)
+    try {
+      await bookingsAPI.submitInvoice(id)
+      load()
+      Alert.alert('Sent', 'Repair quote sent to the customer for approval.')
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e))
+    } finally {
+      setSubmittingInvoice(false)
+    }
+  }
+
   const submitQuote = async () => {
     const isInspection = quoteType === 'INSPECTION'
     const total = isInspection ? parseFloat(labourCost) || 0 : quoteTotal()
@@ -232,6 +246,21 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
     (!booking.mechanicId || booking.mechanicId === currentUserId)
   const messages = Array.isArray(booking.messages) ? booking.messages : []
   const chatReleased = booking.mechanicId && booking.status !== 'REQUESTED'
+  const isInspectionJob = booking?.acceptedQuote?.quoteType === 'INSPECTION'
+  const isOwnActiveJob =
+    Boolean(
+      (status === 'ACCEPTED' || status === 'IN_PROGRESS') &&
+        !booking?.paidAt &&
+        booking?.mechanicId === currentUserId,
+    )
+  const inspectionPaymentPending =
+    Boolean(isInspectionJob && isOwnActiveJob && !booking?.inspectionPaidAt)
+  const canEditRepairCosting =
+    isOwnActiveJob && (!isInspectionJob || Boolean(booking?.inspectionPaidAt))
+  const repairInvoiceStatus = booking?.activeInvoice?.status
+  const repairInvoiceLocked =
+    repairInvoiceStatus === 'SUBMITTED' || repairInvoiceStatus === 'ACCEPTED'
+  const canStartWork = status === 'ACCEPTED' && (!isInspectionJob || Boolean(booking?.inspectionPaidAt))
   const hasLocation =
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
@@ -344,12 +373,20 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
           ) : null}
 
           {status === 'ACCEPTED' ? (
-            <Button
-              title="Start work"
-              onPress={() => updateStatus('IN_PROGRESS')}
-              loading={updatingStatus}
-              style={styles.actionBtn}
-            />
+            <>
+              <Button
+                title="Start work"
+                onPress={() => updateStatus('IN_PROGRESS')}
+                loading={updatingStatus}
+                disabled={!canStartWork}
+                style={styles.actionBtn}
+              />
+              {!canStartWork && isInspectionJob ? (
+                <Text style={styles.inspectionHint}>
+                  Available after the customer pays the inspection fee.
+                </Text>
+              ) : null}
+            </>
           ) : null}
           {status === 'IN_PROGRESS' ? (
             <Button
@@ -359,14 +396,87 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               style={styles.actionBtn}
             />
           ) : null}
-          {(status === 'ACCEPTED' || status === 'IN_PROGRESS') && !booking.paidAt ? (
+          {inspectionPaymentPending ? (
             <View style={styles.costBreakdownBlock}>
-              <Text style={styles.costBreakdownTitle}>Job costing</Text>
-              <Input label="Parts / materials (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
-              <Input label="Labour / service (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
-              <Input label="Other fees (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
+              <Text style={styles.costBreakdownTitle}>Full repair quote</Text>
+              <Text style={styles.inspectionHint}>
+                The customer pays the inspection fee before you can submit the full repair quote.
+              </Text>
+              <Input label="Parts / materials (₦)" value="" editable={false} />
+              <Input label="Labour / service (₦)" value="" editable={false} />
+              <Input label="Other fees (₦)" value="" editable={false} />
+              <Button title="Save draft" onPress={() => {}} disabled style={styles.actionBtn} />
+              <Button
+                title="Send to customer for approval"
+                onPress={() => {}}
+                disabled
+                variant="outline"
+                style={styles.actionBtn}
+              />
+            </View>
+          ) : null}
+          {canEditRepairCosting ? (
+            <View style={styles.costBreakdownBlock}>
+              <Text style={styles.costBreakdownTitle}>
+                {isInspectionJob ? 'Full repair quote' : 'Job costing'}
+              </Text>
+              {repairInvoiceLocked ? (
+                <Text style={styles.inspectionHint}>
+                  {repairInvoiceStatus === 'SUBMITTED'
+                    ? 'Waiting for the customer to accept this repair quote. You cannot edit it until they respond.'
+                    : 'Repair quote accepted — the customer can pay the balance.'}
+                </Text>
+              ) : null}
+              <Input
+                label="Parts / materials (₦)"
+                value={partsCost}
+                onChangeText={setPartsCost}
+                keyboardType="decimal-pad"
+                editable={!repairInvoiceLocked}
+              />
+              <Input
+                label="Labour / service (₦)"
+                value={labourCost}
+                onChangeText={setLabourCost}
+                keyboardType="decimal-pad"
+                editable={!repairInvoiceLocked}
+              />
+              <Input
+                label="Other fees (₦)"
+                value={otherFees}
+                onChangeText={setOtherFees}
+                keyboardType="decimal-pad"
+                editable={!repairInvoiceLocked}
+              />
               <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
-              <Button title="Save costing" onPress={saveCosting} loading={updatingCost} />
+              {isInspectionJob && booking.inspectionPaidAmount ? (
+                <Text style={styles.costTotal}>
+                  Customer balance after inspection credit: ₦
+                  {Math.max(0, quoteTotal() - Number(booking.inspectionPaidAmount)).toLocaleString()}
+                </Text>
+              ) : null}
+              <Button
+                title="Save draft"
+                onPress={saveCosting}
+                loading={updatingCost}
+                disabled={repairInvoiceLocked}
+              />
+              {repairInvoiceStatus === 'DRAFT' || !repairInvoiceStatus ? (
+                <Button
+                  title={submittingInvoice ? 'Sending…' : 'Send to customer for approval'}
+                  onPress={submitRepairInvoice}
+                  loading={submittingInvoice}
+                  disabled={repairInvoiceLocked}
+                  variant="outline"
+                  style={styles.actionBtn}
+                />
+              ) : null}
+              {repairInvoiceStatus === 'SUBMITTED' ? (
+                <Text style={styles.inspectionHint}>Waiting for customer to accept this repair quote.</Text>
+              ) : null}
+              {repairInvoiceStatus === 'ACCEPTED' ? (
+                <Text style={styles.inspectionHint}>Repair quote accepted — customer can pay the balance.</Text>
+              ) : null}
             </View>
           ) : null}
           {booking.pricingSummary?.customerTotalNaira != null ? (

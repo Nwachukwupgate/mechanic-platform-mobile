@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -24,6 +25,7 @@ import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
 import { HeroDecorativeRings } from '../../components/HeroDecorativeRings'
 import { getGreetingLine } from '../../utils/greeting'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { customerPhone } from '../../utils/bookingContact'
 import { layout } from '../../theme/layout'
 import { Button } from '../../components/Button'
 import { DashboardActionTile } from '../../components/DashboardActionTile'
@@ -232,7 +234,9 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             showSeeAll={openRequests.length > LIST_PREVIEW}
             onSeeAll={() => navigation.navigate('Bookings')}
           />
-          {openPreview.map((b: any) => (
+          {openPreview.map((b: any) => {
+            const custPhone = customerPhone(b.user)
+            return (
             <TouchableOpacity
               key={b.id}
               onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
@@ -257,6 +261,19 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                         {b.fault?.name}
                       </Text>
                     </View>
+                    {custPhone ? (
+                      <TouchableOpacity
+                        style={styles.customerPhoneRow}
+                        onPress={(e) => {
+                          e.stopPropagation?.()
+                          Linking.openURL(`tel:${custPhone.replace(/\s/g, '')}`)
+                        }}
+                        accessibilityLabel="Call customer"
+                      >
+                        <Ionicons name="call-outline" size={14} color={colors.primary[600]} />
+                        <Text style={styles.customerPhoneText}>{custPhone}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <View style={styles.openLabelWrap}>
                       <Ionicons name="pricetag-outline" size={14} color={colors.brand.primary} />
                       <Text style={styles.openLabel}>No quote yet</Text>
@@ -266,7 +283,8 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                 </View>
               </Card>
             </TouchableOpacity>
-          ))}
+            )
+          })}
         </>
       )}
 
@@ -280,7 +298,9 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             showSeeAll={pending.length > LIST_PREVIEW}
             onSeeAll={() => navigation.navigate('Bookings')}
           />
-          {pendingPreview.map((b: any) => (
+          {pendingPreview.map((b: any) => {
+            const custPhone = customerPhone(b.user)
+            return (
             <TouchableOpacity
               key={b.id}
               onPress={() => navigation.navigate('MechanicBookingDetail', { id: b.id })}
@@ -305,6 +325,19 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                         {b.fault?.name}
                       </Text>
                     </View>
+                    {custPhone ? (
+                      <TouchableOpacity
+                        style={styles.customerPhoneRow}
+                        onPress={(e) => {
+                          e.stopPropagation?.()
+                          Linking.openURL(`tel:${custPhone.replace(/\s/g, '')}`)
+                        }}
+                        accessibilityLabel="Call customer"
+                      >
+                        <Ionicons name="call-outline" size={14} color={colors.primary[600]} />
+                        <Text style={styles.customerPhoneText}>{custPhone}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <View style={styles.openLabelWrap}>
                       <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.brand.primary} />
                       <Text style={styles.openLabel}>Direct request, tap to quote</Text>
@@ -314,7 +347,8 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
                 </View>
               </Card>
             </TouchableOpacity>
-          ))}
+            )
+          })}
         </>
       )}
 
@@ -608,6 +642,13 @@ const styles = StyleSheet.create({
   fault: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, flex: 1, minWidth: 0 },
   openLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   openLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.brand.primary },
+  customerPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  customerPhoneText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.primary[600] },
   statusChip: {
     alignSelf: 'flex-start',
     marginTop: 10,

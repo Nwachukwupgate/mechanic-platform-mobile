@@ -70,6 +70,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [editingDescription, setEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
   const [savingDescription, setSavingDescription] = useState(false)
+  const [acceptingInvoice, setAcceptingInvoice] = useState(false)
   const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null)
   const [rejectingQuoteId, setRejectingQuoteId] = useState<string | null>(null)
   const [paying, setPaying] = useState(false)
@@ -228,6 +229,19 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {
       setSavingDescription(false)
+    }
+  }
+
+  const acceptInvoice = async () => {
+    if (!id) return
+    setAcceptingInvoice(true)
+    try {
+      await bookingsAPI.acceptInvoice(id)
+      await load()
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e))
+    } finally {
+      setAcceptingInvoice(false)
     }
   }
 
@@ -416,15 +430,49 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     )
   }
 
+  const paymentSummary = booking?.paymentSummary
+  const canPayFromSummary =
+    paymentSummary &&
+    (paymentSummary.canPayInspection ||
+      paymentSummary.canPayRepairBalance ||
+      paymentSummary.canPayStandard)
+
   const primaryBar = useMemo(() => {
     if (!booking) return { kind: 'none' as const }
     const pending = quotes.filter((q: any) => q.status === 'PENDING')
     const payOk = publicFlags?.paymentsEnabled !== false
-    const canPayNow =
-      PAYMENT_STATUSES.includes(booking.status) &&
-      !booking.paidAt &&
-      (booking.estimatedCost ?? 0) > 0
-    if (canPayNow && payOk) return { kind: 'pay' as const }
+    const ps = booking.paymentSummary
+    const canPayNow = payOk && ps && (ps.canPayInspection || ps.canPayRepairBalance || ps.canPayStandard)
+    if (canPayNow) {
+      return {
+        kind: 'pay' as const,
+        payLabel: ps.canPayInspection
+          ? `Pay inspection: ₦${Number(ps.inspectionFeeNaira).toLocaleString()}`
+          : ps.canPayRepairBalance
+            ? `Pay balance: ₦${Number(ps.balanceDueNaira).toLocaleString()}`
+            : 'Pay in app',
+      }
+    }
+    if (
+      payOk &&
+      ps?.isInspectionFlow &&
+      PAYMENT_STATUSES.includes(booking.status)
+    ) {
+      if (ps.phase === 'review_repair_invoice') {
+        return {
+          kind: 'pay_blocked' as const,
+          payLabel: `Pay balance: ₦${Number(ps.balanceDueNaira).toLocaleString()}`,
+          hint: 'Accept the repair quote above to unlock payment.',
+        }
+      }
+      if (ps.phase === 'awaiting_repair_invoice') {
+        return {
+          kind: 'pay_blocked' as const,
+          payLabel: 'Pay repair balance',
+          hint: 'Waiting for your mechanic to submit the full repair quote.',
+        }
+      }
+    }
     const alreadyRated = Array.isArray(booking.ratings) && booking.ratings.length > 0
     const canRate =
       Boolean(booking.mechanicId) &&
@@ -457,14 +505,28 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const clarifications = Array.isArray(booking.clarifications) ? booking.clarifications : []
   const pendingQuotes = quotes.filter((q: any) => q.status === 'PENDING')
   const chatReleased = booking.mechanicId && booking.status !== 'REQUESTED'
-  const canPay =
+  const canPay = Boolean(canPayFromSummary) && PAYMENT_STATUSES.includes(booking.status)
+  const paymentsEnabled = publicFlags?.paymentsEnabled !== false
+  const showAcceptRepairInvoice = booking.paymentSummary?.phase === 'review_repair_invoice'
+  const paymentPhase = booking.paymentSummary?.phase
+  const showBlockedPayment =
+    paymentsEnabled &&
+    booking.paymentSummary?.isInspectionFlow &&
     PAYMENT_STATUSES.includes(booking.status) &&
-    !booking.paidAt &&
-    (booking.estimatedCost ?? 0) > 0
+    (paymentPhase === 'awaiting_repair_invoice' || paymentPhase === 'review_repair_invoice')
+  const blockedPaymentHint =
+    paymentPhase === 'awaiting_repair_invoice'
+      ? 'Available after your mechanic submits the full repair quote.'
+      : paymentPhase === 'review_repair_invoice' && booking.paymentSummary
+        ? `Accept the repair quote above first — then pay ₦${Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}.`
+        : null
+  const blockedPayLabel =
+    paymentPhase === 'review_repair_invoice' && booking.paymentSummary
+      ? `Pay repair balance: ₦${Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}`
+      : 'Pay repair balance'
   const hasLocation =
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
-  const paymentsEnabled = publicFlags?.paymentsEnabled !== false
   const photoUrls: string[] = Array.isArray(booking.photoUrls) ? booking.photoUrls : []
   const showDisputeBtn = ['ACCEPTED', 'IN_PROGRESS', 'DONE', 'PAID', 'DELIVERED'].includes(
     booking.status
@@ -644,6 +706,77 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             )}
           </BookingDetailAccordion>
 
+          {booking.paymentSummary?.isInspectionFlow && booking.status !== 'REQUESTED' ? (
+            <Card style={styles.paymentPhaseCard}>
+              <Text style={styles.paymentPhaseTitle}>Payment progress</Text>
+              {booking.paymentSummary.inspectionPaidNaira > 0 ? (
+                <Text style={styles.paymentPhaseLine}>
+                  Inspection paid: ₦{Number(booking.paymentSummary.inspectionPaidNaira).toLocaleString()}
+                </Text>
+              ) : (
+                <Text style={styles.paymentPhaseLine}>
+                  Inspection fee due: ₦{Number(booking.paymentSummary.inspectionFeeNaira).toLocaleString()}
+                </Text>
+              )}
+              {booking.paymentSummary.repairTotalNaira != null ? (
+                <>
+                  <Text style={styles.paymentPhaseLine}>
+                    Full repair total: ₦{Number(booking.paymentSummary.repairTotalNaira).toLocaleString()}
+                  </Text>
+                  {!booking.paidAt ? (
+                    <Text style={styles.paymentPhaseBalance}>
+                      Balance due: ₦{Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}
+                    </Text>
+                  ) : null}
+                </>
+              ) : booking.paymentSummary.phase === 'awaiting_repair_invoice' ? (
+                <Text style={styles.paymentPhaseHint}>
+                  Waiting for the mechanic to submit the full repair quote after the visit.
+                </Text>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {showAcceptRepairInvoice && booking.activeInvoice ? (
+            <Card style={styles.repairInvoiceCard}>
+              <Text style={styles.paymentPhaseTitle}>Repair quote to review</Text>
+              <Text style={styles.paymentPhaseLine}>
+                Total: ₦{Number(booking.activeInvoice.customerTotalNaira).toLocaleString()}
+              </Text>
+              {booking.paymentSummary?.inspectionPaidNaira ? (
+                <Text style={styles.paymentPhaseLine}>
+                  Minus inspection paid: ₦{Number(booking.paymentSummary.inspectionPaidNaira).toLocaleString()}
+                </Text>
+              ) : null}
+              {booking.paymentSummary ? (
+                <Text style={styles.paymentPhaseBalance}>
+                  You will pay: ₦{Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}
+                </Text>
+              ) : null}
+              <Button
+                title={acceptingInvoice ? 'Accepting…' : 'Accept repair quote'}
+                onPress={acceptInvoice}
+                loading={acceptingInvoice}
+                style={styles.acceptInvoiceBtn}
+              />
+            </Card>
+          ) : null}
+
+          {showBlockedPayment && blockedPaymentHint ? (
+            <Card style={styles.blockedPaymentCard}>
+              <Text style={styles.blockedPaymentLabel}>{blockedPayLabel}</Text>
+              <Button title="Pay with Paystack" onPress={() => {}} disabled style={styles.blockedPayBtn} />
+              <Button
+                title="I paid the mechanic directly"
+                onPress={() => {}}
+                disabled
+                variant="outline"
+                style={styles.blockedPayBtn}
+              />
+              <Text style={styles.blockedPaymentHint}>{blockedPaymentHint}</Text>
+            </Card>
+          ) : null}
+
           {booking.status === 'REQUESTED' && (
             <BookingDetailAccordion
               title="Quotes & pricing"
@@ -672,9 +805,23 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
               {pendingQuotes.length > 0 && (
                 <>
                   <Text style={styles.quotesHint}>Tap Accept on the quote you want.</Text>
-                  {pendingQuotes.map((q: any) => (
+                  {pendingQuotes.map((q: any) => {
+                    const quoteMechPhone = mechanicPhone(q.mechanic)
+                    return (
                     <View key={q.id} style={styles.quoteCard}>
-                      <Text style={styles.quoteMech}>{q.mechanic?.companyName ?? 'Mechanic'}</Text>
+                      <View style={styles.quoteMechRow}>
+                        <Text style={styles.quoteMech}>{q.mechanic?.companyName ?? 'Mechanic'}</Text>
+                        {quoteMechPhone ? (
+                          <TouchableOpacity
+                            style={styles.quoteCallBtn}
+                            onPress={() => Linking.openURL(`tel:${quoteMechPhone.replace(/\s/g, '')}`)}
+                            accessibilityLabel="Call mechanic"
+                          >
+                            <Ionicons name="call-outline" size={16} color={colors.primary[600]} />
+                            <Text style={styles.quoteCallText}>Call</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
                       {isQuoteInspection(q) ? (
                         <View style={styles.quoteTypeBadge}>
                           <Text style={styles.quoteTypeBadgeText}>{quoteTypeLabel(q)}</Text>
@@ -718,7 +865,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                         />
                       </View>
                     </View>
-                  ))}
+                    )
+                  })}
                 </>
               )}
             </BookingDetailAccordion>
@@ -866,10 +1014,29 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
 
       {primaryBar.kind !== 'none' && (
         <View style={[styles.stickyActionBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {primaryBar.kind === 'pay_blocked' && (
+            <View style={styles.stickyInner}>
+              <Button
+                title={'payLabel' in primaryBar ? primaryBar.payLabel : 'Pay repair balance'}
+                onPress={() => {}}
+                disabled
+                style={styles.stickyPrimaryBtn}
+              />
+              {'hint' in primaryBar && primaryBar.hint ? (
+                <Text style={styles.stickyBlockedHint}>{primaryBar.hint}</Text>
+              ) : null}
+            </View>
+          )}
           {primaryBar.kind === 'pay' && paymentsEnabled && (
             <View style={styles.stickyInner}>
               <Button
-                title={paying ? 'Starting…' : 'Pay in app'}
+                title={
+                  paying
+                    ? 'Starting…'
+                    : primaryBar.kind === 'pay' && 'payLabel' in primaryBar
+                      ? primaryBar.payLabel
+                      : 'Pay in app'
+                }
                 onPress={payWithPaystack}
                 loading={paying}
                 style={styles.stickyPrimaryBtn}
@@ -1197,6 +1364,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  paymentPhaseCard: { marginBottom: 12 },
+  paymentPhaseTitle: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.text, marginBottom: 8 },
+  paymentPhaseLine: { fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary, marginBottom: 4 },
+  paymentPhaseBalance: { fontSize: 16, fontFamily: fonts.semiBold, color: colors.primary[700], marginTop: 6 },
+  paymentPhaseHint: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 4 },
+  repairInvoiceCard: { marginBottom: 12, padding: 16 },
+  acceptInvoiceBtn: { marginTop: 12 },
   quotesHint: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -1208,6 +1382,34 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  stickyBlockedHint: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.neutral[600],
+    marginTop: 10,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  blockedPaymentCard: {
+    marginBottom: 12,
+    padding: 16,
+    backgroundColor: colors.neutral[100],
+    opacity: 0.95,
+  },
+  blockedPaymentLabel: {
+    fontSize: 15,
+    fontFamily: fonts.semiBold,
+    color: colors.neutral[500],
+    marginBottom: 12,
+  },
+  blockedPayBtn: { marginBottom: 8 },
+  blockedPaymentHint: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 18,
   },
   descriptionText: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
   descriptionInput: {
@@ -1230,7 +1432,23 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral[100],
   },
   quoteCardInner: { gap: 2 },
-  quoteMech: { fontSize: 16, fontWeight: '600', color: colors.text },
+  quoteMech: { fontSize: 16, fontWeight: '600', color: colors.text, flex: 1 },
+  quoteMechRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  quoteCallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primary[50],
+  },
+  quoteCallText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.primary[600] },
   quoteTypeBadge: {
     alignSelf: 'flex-start',
     marginTop: 6,

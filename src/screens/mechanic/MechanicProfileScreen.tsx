@@ -46,6 +46,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true)
 }
 
+const MAX_AVATAR_BYTES = 10 * 1024 * 1024
+
 function formatSavedAt(d: Date): string {
   const s = Math.floor((Date.now() - d.getTime()) / 1000)
   if (s < 10) return 'just now'
@@ -316,6 +318,10 @@ export function MechanicProfileScreen() {
     })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
+    if (type === 'avatar' && asset.fileSize != null && asset.fileSize > MAX_AVATAR_BYTES) {
+      Alert.alert('Too large', 'Profile photo must be under 10MB. Try a smaller image or crop it.')
+      return
+    }
     const uri = asset.uri
     const name = uri.split('/').pop() || (type === 'avatar' ? 'avatar.jpg' : 'certificate.jpg')
     const file = { uri, name, type: asset.mimeType || 'image/jpeg' }

@@ -1,5 +1,5 @@
 export function canShowBookingContactPhone(booking: { status?: string } | null | undefined): boolean {
-  return Boolean(booking?.status && booking.status !== 'REQUESTED')
+  return Boolean(booking?.status)
 }
 
 export function customerPhone(u: unknown): string | undefined {
