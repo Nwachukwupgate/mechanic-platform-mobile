@@ -2,7 +2,7 @@
   "expo": {
     "name": "Denicksen Auto",
     "slug": "denicksen-auto",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,10 +17,10 @@
       "infoPlist": {
         "UIViewControllerBasedStatusBarAppearance": true
       },
-      "buildNumber": "18"
+      "buildNumber": "19"
     },
     "android": {
-      "versionCode": 14,
+      "versionCode": 15,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
