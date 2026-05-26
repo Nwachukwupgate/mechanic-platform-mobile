@@ -17,7 +17,7 @@
       "infoPlist": {
         "UIViewControllerBasedStatusBarAppearance": true
       },
-      "buildNumber": "19"
+      "buildNumber": "20"
     },
     "android": {
       "versionCode": 15,
