@@ -4,6 +4,7 @@ import {
   requestPushPermissionsWithPrimer,
   getExpoPushTokenOrNull,
 } from '../services/pushNotifications'
+import { configureAlertNotificationChannels } from '../services/alertNotifications'
 import { usersAPI, mechanicsAPI } from '../services/api'
 import type { User } from '../store/authStore'
 
@@ -25,6 +26,7 @@ export function useSyncExpoPushToken(user: User | null | undefined, isAuthentica
 
     void (async () => {
       configureAndroidNotificationChannels()
+      configureAlertNotificationChannels()
       const granted = await requestPushPermissionsWithPrimer()
       if (!granted || cancelled) return
 

@@ -71,10 +71,6 @@ export function onBookingStatusChanged(cb: (data: BookingStatusChangedPayload) =
 
 export function onQuoteEvents(cb: (data: { bookingId: string; event: string; quote?: any }) => void): () => void {
   if (!socket) return () => {}
-  const handler = (data: { bookingId: string; event?: string; quote?: any }) => {
-    const event = data.event || 'quote:updated'
-    cb({ bookingId: data.bookingId, event, quote: data.quote })
-  }
   socket.on('quote:created', (data: any) => cb({ ...data, event: 'quote:created' }))
   socket.on('quote:updated', (data: any) => cb({ ...data, event: 'quote:updated' }))
   socket.on('quote:rejected', (data: any) => cb({ ...data, event: 'quote:rejected' }))
@@ -84,5 +80,20 @@ export function onQuoteEvents(cb: (data: { bookingId: string; event: string; quo
     socket?.off('quote:updated')
     socket?.off('quote:rejected')
     socket?.off('quote:accepted')
+  }
+}
+
+export type InspectionPaidPayload = {
+  bookingId: string
+  mechanicId: string
+  userId: string
+  amountNaira: number | null
+}
+
+export function onInspectionPaid(cb: (data: InspectionPaidPayload) => void): () => void {
+  if (!socket) return () => {}
+  socket.on('inspection:paid', cb)
+  return () => {
+    socket?.off('inspection:paid', cb)
   }
 }

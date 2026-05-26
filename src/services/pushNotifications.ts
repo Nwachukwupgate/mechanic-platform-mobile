@@ -3,6 +3,7 @@ import * as Device from 'expo-device'
 import { Alert, Platform } from 'react-native'
 import Constants from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { GARAGE_PING_SOUND } from '../constants/notificationSound'
 
 const PRIMER_SEEN_KEY = 'push_permission_primer_seen_v1'
 
@@ -23,18 +24,21 @@ export function configureAndroidNotificationChannels() {
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#16a34a',
+    sound: GARAGE_PING_SOUND,
   })
   void Notifications.setNotificationChannelAsync('bookings', {
     name: 'Jobs & quotes',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#16a34a',
+    sound: GARAGE_PING_SOUND,
   })
   void Notifications.setNotificationChannelAsync('messages', {
     name: 'Messages',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 200, 100, 200],
     lightColor: '#16a34a',
+    sound: GARAGE_PING_SOUND,
   })
 }
 
@@ -42,7 +46,13 @@ export async function ensurePushPermissions(): Promise<boolean> {
   if (!Device.isDevice) return false
   const { status: existing } = await Notifications.getPermissionsAsync()
   if (existing === 'granted') return true
-  const { status } = await Notifications.requestPermissionsAsync()
+  const { status } = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+    },
+  })
   return status === 'granted'
 }
 

@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '../store/authStore'
 import { useSyncExpoPushToken } from '../hooks/useSyncExpoPushToken'
 import { usePushNotificationNavigation } from '../hooks/usePushNotificationNavigation'
+import { useRealtimeAlerts } from '../hooks/useRealtimeAlerts'
 import { navigationRef } from './navigationRef'
 import { hasCompletedOnboarding } from '../utils/onboarding'
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen'
@@ -38,6 +39,7 @@ export function RootNavigator() {
 
   useSyncExpoPushToken(user, isAuthenticated)
   usePushNotificationNavigation(isAuthenticated)
+  useRealtimeAlerts(isAuthenticated)
 
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null)
   const fontsReady = fontsLoaded || fontError != null

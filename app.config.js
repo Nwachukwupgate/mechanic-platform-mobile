@@ -29,6 +29,7 @@ module.exports = {
         'expo-notifications',
         {
           color: '#16a34a',
+          sounds: ['./assets/sounds/garage_ping.mp3'],
         },
       ],
       [

@@ -21,6 +21,7 @@ import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
 import { canShowBookingContactPhone, customerPhone } from '../../utils/bookingContact'
+import { quoteStatusLabel } from '../../utils/quoteStatusLabel'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
@@ -372,6 +373,23 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
             </Text>
           ) : null}
 
+          {isInspectionJob && (status === 'ACCEPTED' || status === 'IN_PROGRESS') && isOwnActiveJob ? (
+            <View style={styles.inspectionPaymentStatus}>
+              <Text style={styles.inspectionPaymentStatusTitle}>Inspection payment</Text>
+              {booking.inspectionPaidAt ? (
+                <Text style={styles.inspectionPaymentStatusPaid}>
+                  Paid: ₦{Number(booking.inspectionPaidAmount ?? booking.estimatedCost ?? 0).toLocaleString()} — you
+                  can start work and submit the full repair quote.
+                </Text>
+              ) : (
+                <Text style={styles.inspectionPaymentStatusPending}>
+                  Waiting for the customer to pay the inspection fee. Start work and the repair quote form unlock after
+                  payment.
+                </Text>
+              )}
+            </View>
+          ) : null}
+
           {status === 'ACCEPTED' ? (
             <>
               <Button
@@ -517,6 +535,17 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
             </View>
             {quoteType === 'INSPECTION' ? (
               <>
+                {myQuote?.status === 'REJECTED' ? (
+                  <View style={styles.rejectedQuoteBanner}>
+                    <Text style={styles.rejectedQuoteTitle}>Quote declined</Text>
+                    <Text style={styles.rejectedQuoteText}>
+                      The customer rejected your inspection fee. Update the amount below and submit again — they’ll
+                      see the new quote in their app.
+                    </Text>
+                  </View>
+                ) : myQuote ? (
+                  <Text style={styles.quoteStatus}>Status: {quoteStatusLabel(myQuote.status)}</Text>
+                ) : null}
                 <Text style={styles.inspectionHint}>
                   Charge a diagnosis fee to visit and inspect. You’ll submit the full repair quote after the on-site
                   check.
@@ -543,9 +572,17 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               </>
             ) : myQuote ? (
               <View style={styles.quoteBlock}>
+                {myQuote.status === 'REJECTED' ? (
+                  <View style={styles.rejectedQuoteBanner}>
+                    <Text style={styles.rejectedQuoteTitle}>Quote declined</Text>
+                    <Text style={styles.rejectedQuoteText}>
+                      The customer rejected this quote. Adjust your price below and tap Update quote to send it again.
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.quotePrice}>₦{Number(myQuote.proposedPrice).toLocaleString()}</Text>
-                <Text style={styles.quoteStatus}>Status: {myQuote.status}</Text>
-                {myQuote.status === 'PENDING' ? (
+                <Text style={styles.quoteStatus}>Status: {quoteStatusLabel(myQuote.status)}</Text>
+                {myQuote.status === 'PENDING' || myQuote.status === 'REJECTED' ? (
                   <>
                     <Input label="Parts (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
                     <Input label="Labour (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
@@ -794,7 +831,52 @@ const styles = StyleSheet.create({
   descriptionText: { fontSize: 15, fontFamily: fonts.regular, color: colors.textSecondary, lineHeight: 22 },
   quoteBlock: { marginTop: 4 },
   quotePrice: { fontSize: 19, fontWeight: '700', color: colors.primary[600] },
-  quoteStatus: { fontSize: 14, color: colors.textSecondary, marginTop: 8 },
+  quoteStatus: { fontSize: 14, color: colors.textSecondary, marginTop: 8, marginBottom: 8 },
+  rejectedQuoteBanner: {
+    backgroundColor: colors.statusBadge?.requested?.bg ?? '#FEF3C7',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  rejectedQuoteTitle: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  rejectedQuoteText: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  inspectionPaymentStatus: {
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: colors.neutral[50],
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+  },
+  inspectionPaymentStatusTitle: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  inspectionPaymentStatusPaid: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.primary[700],
+    lineHeight: 18,
+  },
+  inspectionPaymentStatusPending: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
   quoteForm: { marginTop: 12 },
   formBtn: { marginTop: 14 },
   quoteMessageInput: {

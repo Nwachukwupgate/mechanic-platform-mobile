@@ -507,6 +507,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const chatReleased = booking.mechanicId && booking.status !== 'REQUESTED'
   const canPay = Boolean(canPayFromSummary) && PAYMENT_STATUSES.includes(booking.status)
   const paymentsEnabled = publicFlags?.paymentsEnabled !== false
+  const showActivePayment = paymentsEnabled && canPay && Boolean(booking.paymentSummary)
+  const activePaymentLabel = booking.paymentSummary?.canPayInspection
+    ? `Pay inspection: ₦${Number(booking.paymentSummary.inspectionFeeNaira).toLocaleString()}`
+    : booking.paymentSummary?.canPayRepairBalance
+      ? `Pay balance: ₦${Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}`
+      : 'Pay for this job'
   const showAcceptRepairInvoice = booking.paymentSummary?.phase === 'review_repair_invoice'
   const paymentPhase = booking.paymentSummary?.phase
   const showBlockedPayment =
@@ -714,9 +720,16 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   Inspection paid: ₦{Number(booking.paymentSummary.inspectionPaidNaira).toLocaleString()}
                 </Text>
               ) : (
-                <Text style={styles.paymentPhaseLine}>
-                  Inspection fee due: ₦{Number(booking.paymentSummary.inspectionFeeNaira).toLocaleString()}
-                </Text>
+                <>
+                  <Text style={styles.paymentPhaseLine}>
+                    Inspection fee due: ₦{Number(booking.paymentSummary.inspectionFeeNaira).toLocaleString()}
+                  </Text>
+                  {booking.paymentSummary.canPayInspection ? (
+                    <Text style={styles.paymentPhaseHint}>
+                      Pay the inspection fee below so your mechanic can visit and diagnose the issue.
+                    </Text>
+                  ) : null}
+                </>
               )}
               {booking.paymentSummary.repairTotalNaira != null ? (
                 <>
@@ -734,6 +747,25 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   Waiting for the mechanic to submit the full repair quote after the visit.
                 </Text>
               ) : null}
+            </Card>
+          ) : null}
+
+          {showActivePayment ? (
+            <Card style={styles.activePaymentCard}>
+              <Text style={styles.paymentPhaseTitle}>{activePaymentLabel}</Text>
+              <Button
+                title={paying ? 'Starting…' : 'Pay with Paystack'}
+                onPress={payWithPaystack}
+                loading={paying}
+                style={styles.activePayBtn}
+              />
+              <Button
+                title="I paid the mechanic directly"
+                variant="outline"
+                onPress={markDirectPaid}
+                loading={markingDirect}
+                style={styles.activePayBtn}
+              />
             </Card>
           ) : null}
 
@@ -1365,6 +1397,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   paymentPhaseCard: { marginBottom: 12 },
+  activePaymentCard: { marginBottom: 12, padding: 16 },
+  activePayBtn: { marginTop: 10 },
   paymentPhaseTitle: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.text, marginBottom: 8 },
   paymentPhaseLine: { fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary, marginBottom: 4 },
   paymentPhaseBalance: { fontSize: 16, fontFamily: fonts.semiBold, color: colors.primary[700], marginTop: 6 },
