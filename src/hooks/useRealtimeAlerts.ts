@@ -32,11 +32,12 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
 
     connectSocket()
 
-    const isForeground = () => appStateRef.current === 'active'
+    const isAlertable = () =>
+      appStateRef.current === 'active' || appStateRef.current === 'background'
     const role = user.role
 
     const unsubQuote = onQuoteEvents((data) => {
-      if (!isForeground()) return
+      if (!isAlertable()) return
       const bookingId = data.bookingId
       const base = { bookingId, type: data.event.replace(':', '_') }
 
@@ -76,7 +77,7 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
     })
 
     const unsubInspection = onInspectionPaid((data) => {
-      if (!isForeground() || role !== 'MECHANIC') return
+      if (!isAlertable() || role !== 'MECHANIC') return
       const amount =
         data.amountNaira != null
           ? `₦${Number(data.amountNaira).toLocaleString()}`
@@ -89,7 +90,7 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
     })
 
     const unsubStatus = onBookingStatusChanged((data) => {
-      if (!isForeground()) return
+      if (!isAlertable()) return
       if (!MAJOR_BOOKING_STATUSES.has(data.status)) return
 
       const bookingId = data.bookingId
@@ -129,7 +130,7 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
     })
 
     const unsubMsg = onNewMessage((data) => {
-      if (!isForeground()) return
+      if (!isAlertable()) return
       const preview =
         typeof data.message?.content === 'string'
           ? data.message.content.slice(0, 80)

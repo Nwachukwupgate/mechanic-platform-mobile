@@ -3,7 +3,13 @@ import * as Device from 'expo-device'
 import { Alert, Platform } from 'react-native'
 import Constants from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { GARAGE_PING_SOUND } from '../constants/notificationSound'
+import {
+  GARAGE_PING_SOUND,
+  ANDROID_ALERTS_CHANNEL,
+  ANDROID_BOOKINGS_CHANNEL,
+  ANDROID_DEFAULT_CHANNEL,
+  ANDROID_MESSAGES_CHANNEL,
+} from '../constants/notificationSound'
 
 const PRIMER_SEEN_KEY = 'push_permission_primer_seen_v1'
 
@@ -17,43 +23,79 @@ Notifications.setNotificationHandler({
   }),
 })
 
+function androidChannelSound() {
+  return GARAGE_PING_SOUND
+}
+
 export function configureAndroidNotificationChannels() {
   if (Platform.OS !== 'android') return
-  void Notifications.setNotificationChannelAsync('default', {
+
+  const sound = androidChannelSound()
+  const channelBase = {
+    sound,
+    enableVibrate: true,
+    lightColor: '#16a34a',
+    audioAttributes: {
+      usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+      contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+    },
+  }
+
+  void Notifications.setNotificationChannelAsync(ANDROID_DEFAULT_CHANNEL, {
     name: 'General',
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#16a34a',
-    sound: GARAGE_PING_SOUND,
+    ...channelBase,
   })
-  void Notifications.setNotificationChannelAsync('bookings', {
+  void Notifications.setNotificationChannelAsync(ANDROID_BOOKINGS_CHANNEL, {
     name: 'Jobs & quotes',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#16a34a',
-    sound: GARAGE_PING_SOUND,
+    ...channelBase,
   })
-  void Notifications.setNotificationChannelAsync('messages', {
+  void Notifications.setNotificationChannelAsync(ANDROID_MESSAGES_CHANNEL, {
     name: 'Messages',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 200, 100, 200],
-    lightColor: '#16a34a',
-    sound: GARAGE_PING_SOUND,
+    ...channelBase,
   })
+}
+
+export function configureAlertNotificationChannels() {
+  if (Platform.OS !== 'android') return
+  void Notifications.setNotificationChannelAsync(ANDROID_ALERTS_CHANNEL, {
+    name: 'Important alerts',
+    description: 'Quotes, payments, and job updates',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 400, 200, 400],
+    lightColor: '#16a34a',
+    sound: androidChannelSound(),
+    enableVibrate: true,
+    bypassDnd: false,
+    audioAttributes: {
+      usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+      contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+    },
+  })
+}
+
+export async function getNotificationPermissionStatus(): Promise<Notifications.PermissionStatus> {
+  const { status } = await Notifications.getPermissionsAsync()
+  return status
 }
 
 export async function ensurePushPermissions(): Promise<boolean> {
   if (!Device.isDevice) return false
-  const { status: existing } = await Notifications.getPermissionsAsync()
-  if (existing === 'granted') return true
-  const { status } = await Notifications.requestPermissionsAsync({
+  const existing = await Notifications.getPermissionsAsync()
+  if (existing.status === 'granted') return true
+  const requested = await Notifications.requestPermissionsAsync({
     ios: {
       allowAlert: true,
       allowBadge: true,
       allowSound: true,
     },
   })
-  return status === 'granted'
+  return requested.status === 'granted'
 }
 
 /** One-time in-app explanation before the system permission dialog. */
@@ -98,5 +140,19 @@ export async function getExpoPushTokenOrNull(): Promise<string | null> {
   } catch (e) {
     console.warn('[push] getExpoPushTokenAsync failed', e)
     return null
+  }
+}
+
+/** Map API/server channel ids to the Android channel registered in-app. */
+export function resolveAndroidChannelId(channelId?: string | null): string {
+  switch (channelId) {
+    case 'alerts':
+      return ANDROID_ALERTS_CHANNEL
+    case 'messages':
+      return ANDROID_MESSAGES_CHANNEL
+    case 'bookings':
+      return ANDROID_BOOKINGS_CHANNEL
+    default:
+      return ANDROID_DEFAULT_CHANNEL
   }
 }

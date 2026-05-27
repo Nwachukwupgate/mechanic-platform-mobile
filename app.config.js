@@ -29,7 +29,9 @@ module.exports = {
         'expo-notifications',
         {
           color: '#16a34a',
-          sounds: ['./assets/sounds/garage_ping.mp3'],
+          sounds: ['./assets/sounds/garage_ping.wav'],
+          defaultChannel: 'alerts-v2',
+          enableBackgroundRemoteNotifications: true,
         },
       ],
       [
@@ -68,6 +70,7 @@ module.exports = {
       ...base.android,
       /** New Play Store listing (replaces suspended `com.anonymous.mechanicplatformmobiles`). Must match Play Console → App → App ID exactly. */
       package: 'com.denicksenauto.mechanic',
+      permissions: [...(base.android?.permissions ?? []), 'POST_NOTIFICATIONS'],
       config: {
         ...(base.android?.config || {}),
         googleMaps: {
