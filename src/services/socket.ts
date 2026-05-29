@@ -97,3 +97,35 @@ export function onInspectionPaid(cb: (data: InspectionPaidPayload) => void): () 
     socket?.off('inspection:paid', cb)
   }
 }
+
+export type JobAssignedPayload = {
+  bookingId: string
+  mechanicId: string
+  userId: string
+  faultName: string
+  vehicleLabel: string
+}
+
+export type JobOpenedPayload = {
+  bookingId: string
+  userId: string
+  mechanicIds: string[]
+  faultName: string
+  vehicleLabel: string
+}
+
+export function onJobAssigned(cb: (data: JobAssignedPayload) => void): () => void {
+  if (!socket) return () => {}
+  socket.on('job:assigned', cb)
+  return () => {
+    socket?.off('job:assigned', cb)
+  }
+}
+
+export function onJobOpened(cb: (data: JobOpenedPayload) => void): () => void {
+  if (!socket) return () => {}
+  socket.on('job:opened', cb)
+  return () => {
+    socket?.off('job:opened', cb)
+  }
+}

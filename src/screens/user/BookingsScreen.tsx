@@ -9,6 +9,7 @@ import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { useBookingListRealtime } from '../../hooks/useBookingListRealtime'
 
 export function BookingsScreen({ navigation }: { navigation: any }) {
   const [list, setList] = useState<any[]>([])
@@ -28,6 +29,8 @@ export function BookingsScreen({ navigation }: { navigation: any }) {
       load()
     }, [load])
   )
+
+  useBookingListRealtime(load)
 
   if (loading) return <LoadingOverlay />
 

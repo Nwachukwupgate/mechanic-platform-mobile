@@ -147,10 +147,13 @@ export async function getExpoPushTokenOrNull(): Promise<string | null> {
 export function resolveAndroidChannelId(channelId?: string | null): string {
   switch (channelId) {
     case 'alerts':
+    case 'alerts-v2':
       return ANDROID_ALERTS_CHANNEL
     case 'messages':
+    case 'messages-v2':
       return ANDROID_MESSAGES_CHANNEL
     case 'bookings':
+    case 'bookings-v2':
       return ANDROID_BOOKINGS_CHANNEL
     default:
       return ANDROID_DEFAULT_CHANNEL

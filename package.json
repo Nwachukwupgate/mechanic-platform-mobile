@@ -12,7 +12,9 @@
     "build:android:store": "eas build --platform android --profile production",
     "build:ios:store": "eas build --profile production --platform ios",
     "submit:ios": "eas submit --platform ios --latest",
-    "submit:android": "eas submit --platform android --latest --profile production"
+    "submit:android": "eas submit --platform android --latest --profile production",
+    "setup:apns": "node scripts/setup-apns-push-key-to-eas.cjs --create",
+    "setup:apns:check": "node scripts/setup-apns-push-key-to-eas.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.4.3",
@@ -46,7 +48,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "eas-cli": "^14.0.0",
+    "eas-cli": "^19.1.0",
     "typescript": "~5.9.2"
   },
   "engines": {

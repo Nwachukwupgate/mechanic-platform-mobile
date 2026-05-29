@@ -28,6 +28,7 @@ import { getGreetingLine } from '../../utils/greeting'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
 import { layout } from '../../theme/layout'
 import { Button } from '../../components/Button'
+import { useBookingListRealtime } from '../../hooks/useBookingListRealtime'
 
 const PAD = layout.screenPaddingHorizontal
 const TILE_GAP = 10
@@ -97,6 +98,8 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       load()
     }, [load])
   )
+
+  useBookingListRealtime(load)
 
   useFocusEffect(
     useCallback(() => {

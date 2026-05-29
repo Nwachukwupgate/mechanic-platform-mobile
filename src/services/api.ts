@@ -71,6 +71,15 @@ api.interceptors.request.use((config) => {
     if (h && typeof h.delete === 'function') h.delete('Content-Type')
     else if (h) delete h['Content-Type']
   }
+  // Prevent the native HTTP cache (esp. iOS) from returning stale GET responses.
+  // Without this, pull-to-refresh can show old data even after the server updated.
+  // Headers only (no cache-bust query param) so we don't trip the API's
+  // forbidNonWhitelisted validation on endpoints with query DTOs.
+  const method = (config.method ?? 'get').toLowerCase()
+  if (method === 'get') {
+    config.headers['Cache-Control'] = 'no-cache'
+    config.headers['Pragma'] = 'no-cache'
+  }
   return config
 })
 

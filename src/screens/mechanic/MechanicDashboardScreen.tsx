@@ -29,6 +29,7 @@ import { customerPhone } from '../../utils/bookingContact'
 import { layout } from '../../theme/layout'
 import { Button } from '../../components/Button'
 import { DashboardActionTile } from '../../components/DashboardActionTile'
+import { useBookingListRealtime } from '../../hooks/useBookingListRealtime'
 
 const PAD = layout.screenPaddingHorizontal
 const TILE_GAP = 10
@@ -115,6 +116,8 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
       load()
     }, [load])
   )
+
+  useBookingListRealtime(load)
 
   useFocusEffect(
     useCallback(() => {

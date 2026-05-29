@@ -9,6 +9,7 @@ import { IconBadge } from '../../components/IconBadge'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
+import { useBookingListRealtime } from '../../hooks/useBookingListRealtime'
 
 const FILTERS = [
   { key: 'ALL', label: 'All' },
@@ -36,6 +37,8 @@ export function MechanicBookingsScreen({ navigation }: { navigation: any }) {
       load()
     }, [load])
   )
+
+  useBookingListRealtime(load)
 
   const filtered = filter === 'ALL'
     ? list

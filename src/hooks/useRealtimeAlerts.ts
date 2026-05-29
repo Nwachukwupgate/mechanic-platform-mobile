@@ -7,6 +7,8 @@ import {
   onNewMessage,
   onBookingStatusChanged,
   onInspectionPaid,
+  onJobAssigned,
+  onJobOpened,
 } from '../services/socket'
 import { presentMajorAlert, presentMessageAlert } from '../services/alertNotifications'
 
@@ -142,11 +144,31 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
       })
     })
 
+    const unsubJobAssigned = onJobAssigned((data) => {
+      if (!isAlertable() || role !== 'MECHANIC') return
+      void presentMajorAlert({
+        title: 'New job request',
+        body: `${data.faultName} — submit your quote.`,
+        data: { bookingId: data.bookingId, type: 'job_assigned' },
+      })
+    })
+
+    const unsubJobOpened = onJobOpened((data) => {
+      if (!isAlertable() || role !== 'MECHANIC') return
+      void presentMajorAlert({
+        title: 'New open job',
+        body: `${data.faultName} — tap to view and bid.`,
+        data: { bookingId: data.bookingId, type: 'job_opened' },
+      })
+    })
+
     return () => {
       unsubQuote()
       unsubInspection()
       unsubStatus()
       unsubMsg()
+      unsubJobAssigned()
+      unsubJobOpened()
     }
   }, [isAuthenticated, user?.id, user?.role])
 }

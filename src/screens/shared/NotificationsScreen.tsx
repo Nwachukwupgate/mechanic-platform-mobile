@@ -163,6 +163,7 @@ function iconForType(type: string, read: boolean): keyof typeof Ionicons.glyphMa
   const t = type.toUpperCase()
   if (t === 'MESSAGE') return read ? 'chatbubble-outline' : 'chatbubble'
   if (t.startsWith('QUOTE')) return read ? 'pricetag-outline' : 'pricetags'
+  if (t === 'JOB_ASSIGNED' || t === 'JOB_OPENED') return read ? 'briefcase-outline' : 'briefcase'
   if (t === 'BOOKING_STATUS') return read ? 'car-outline' : 'car'
   return read ? 'notifications-outline' : 'notifications'
 }
