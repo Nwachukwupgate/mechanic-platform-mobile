@@ -311,7 +311,7 @@ export function MechanicProfileScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: type === 'certificate' ? (['images', 'pdf'] as any) : ['images'],
+      mediaTypes: ['images'],
       allowsEditing: type === 'avatar',
       aspect: type === 'avatar' ? [1, 1] : undefined,
       quality: 0.8,
@@ -328,9 +328,11 @@ export function MechanicProfileScreen() {
     if (type === 'avatar') {
       setUploadingAvatar(true)
       try {
-        await mechanicsAPI.uploadAvatar(file as any)
-        const refreshed = await mechanicsAPI.getProfile()
-        applyFromServer(refreshed.data)
+        // Use the URL returned by the upload so the preview shows immediately,
+        // independent of when the server persists/returns it on the next fetch.
+        const res = await mechanicsAPI.uploadAvatar(file as any)
+        const newUrl = res.data?.avatarUrl
+        if (newUrl) setAvatarUrl(newUrl)
         hapticSuccess()
       } catch (e: any) {
         Alert.alert('Error', getApiErrorMessage(e))
@@ -340,9 +342,9 @@ export function MechanicProfileScreen() {
     } else {
       setUploadingCert(true)
       try {
-        await mechanicsAPI.uploadCertificate(file as any)
-        const refreshed = await mechanicsAPI.getProfile()
-        applyFromServer(refreshed.data)
+        const res = await mechanicsAPI.uploadCertificate(file as any)
+        const newUrl = res.data?.certificateUrl
+        if (newUrl) setCertificateUrl(newUrl)
         hapticSuccess()
       } catch (e: any) {
         Alert.alert('Error', getApiErrorMessage(e))
@@ -913,7 +915,7 @@ export function MechanicProfileScreen() {
             <EmptyState
               icon="ribbon-outline"
               title="Upload your certificate"
-              subtitle="PDF or image, up to 5MB. Builds trust with new customers."
+              subtitle="Clear photo or screenshot, up to 5MB. Builds trust with new customers."
             >
               <Button title="Upload certificate" onPress={() => pickImage('certificate')} loading={uploadingCert} variant="outline" />
             </EmptyState>
