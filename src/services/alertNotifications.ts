@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import {
-  GARAGE_PING_SOUND,
+  NOTIFICATION_ALERT_SOUND,
   ANDROID_ALERTS_CHANNEL,
   ANDROID_MESSAGES_CHANNEL,
 } from '../constants/notificationSound'
@@ -53,7 +53,7 @@ async function presentLocalAlert(input: {
       title: input.title,
       body: input.body,
       data: input.data ?? {},
-      sound: GARAGE_PING_SOUND,
+      sound: NOTIFICATION_ALERT_SOUND,
     },
     trigger: null,
   })

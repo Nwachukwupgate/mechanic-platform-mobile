@@ -148,7 +148,7 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
       if (!isAlertable() || role !== 'MECHANIC') return
       void presentMajorAlert({
         title: 'New job request',
-        body: `${data.faultName} — submit your quote.`,
+        body: `${data.faultName}. Submit your quote.`,
         data: { bookingId: data.bookingId, type: 'job_assigned' },
       })
     })
@@ -157,7 +157,7 @@ export function useRealtimeAlerts(isAuthenticated: boolean) {
       if (!isAlertable() || role !== 'MECHANIC') return
       void presentMajorAlert({
         title: 'New open job',
-        body: `${data.faultName} — tap to view and bid.`,
+        body: `${data.faultName}. Tap to view and bid.`,
         data: { bookingId: data.bookingId, type: 'job_opened' },
       })
     })

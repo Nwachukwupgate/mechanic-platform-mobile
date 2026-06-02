@@ -39,6 +39,13 @@ import { BookingDetailAccordion } from '../../components/bookingDetail/BookingDe
 import { BookingDetailProgressSteps } from '../../components/bookingDetail/BookingDetailProgressSteps'
 import { BookingHeroDecor } from '../../components/bookingDetail/BookingHeroDecor'
 import { BookingPhotoGallery } from '../../components/bookingDetail/BookingPhotoGallery'
+import {
+  CustomerPriceBreakdown,
+  quoteToPriceBreakdownLines,
+} from '../../components/bookingDetail/CustomerPriceBreakdown'
+import { BookingWhatsNextCard } from '../../components/bookingDetail/BookingWhatsNextCard'
+import { buildCustomerWhatsNext } from '../../utils/bookingWhatsNext'
+import { getBookingDetailSectionFocus } from '../../utils/bookingDetailSectionFocus'
 
 const PAYMENT_STATUSES = ['ACCEPTED', 'IN_PROGRESS', 'DONE']
 const MAX_BOOKING_PHOTOS = 3
@@ -71,6 +78,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [descriptionDraft, setDescriptionDraft] = useState('')
   const [savingDescription, setSavingDescription] = useState(false)
   const [acceptingInvoice, setAcceptingInvoice] = useState(false)
+  const [rejectingInvoice, setRejectingInvoice] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
   const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null)
   const [rejectingQuoteId, setRejectingQuoteId] = useState<string | null>(null)
   const [paying, setPaying] = useState(false)
@@ -92,21 +101,15 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
   const [paystackCheckoutUrl, setPaystackCheckoutUrl] = useState<string | null>(null)
   const [paystackCheckoutRef, setPaystackCheckoutRef] = useState<string | null>(null)
 
-  const [jobDetailsExpanded, setJobDetailsExpanded] = useState(true)
+  const [jobDetailsExpanded, setJobDetailsExpanded] = useState(false)
   const [quotesExpanded, setQuotesExpanded] = useState(true)
-  const [qaExpanded, setQaExpanded] = useState(true)
-  const [locationExpanded, setLocationExpanded] = useState(false)
-  const [safetyExpanded, setSafetyExpanded] = useState(false)
-  const [chatExpanded, setChatExpanded] = useState(true)
+  const [qaExpanded, setQaExpanded] = useState(false)
+  const [locationAndSupportExpanded, setLocationAndSupportExpanded] = useState(false)
+  const [chatExpanded, setChatExpanded] = useState(false)
+  const sectionFocusKeyRef = useRef('')
 
   useEffect(() => {
     setRatingSkipped(false)
-    setJobDetailsExpanded(true)
-    setQuotesExpanded(true)
-    setQaExpanded(true)
-    setLocationExpanded(false)
-    setSafetyExpanded(false)
-    setChatExpanded(true)
   }, [id])
 
   useEffect(() => {
@@ -242,6 +245,25 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       Alert.alert('Error', getApiErrorMessage(e))
     } finally {
       setAcceptingInvoice(false)
+    }
+  }
+
+  const rejectInvoice = async () => {
+    if (!id) return
+    const reason = rejectReason.trim()
+    if (reason.length < 3) {
+      Alert.alert('Reason needed', 'Please tell the mechanic why you are declining (a few words).')
+      return
+    }
+    setRejectingInvoice(true)
+    try {
+      await bookingsAPI.rejectInvoice(id, reason)
+      setRejectReason('')
+      await load()
+    } catch (e: any) {
+      Alert.alert('Error', getApiErrorMessage(e))
+    } finally {
+      setRejectingInvoice(false)
     }
   }
 
@@ -453,23 +475,21 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             : 'Pay in app',
       }
     }
-    if (
-      payOk &&
-      ps?.isInspectionFlow &&
-      PAYMENT_STATUSES.includes(booking.status)
-    ) {
+    if (payOk && ps && PAYMENT_STATUSES.includes(booking.status)) {
       if (ps.phase === 'review_repair_invoice') {
         return {
           kind: 'pay_blocked' as const,
           payLabel: `Pay balance: ₦${Number(ps.balanceDueNaira).toLocaleString()}`,
-          hint: 'Accept the repair quote above to unlock payment.',
+          hint: 'Accept or decline the quote above to unlock payment.',
         }
       }
       if (ps.phase === 'awaiting_repair_invoice') {
         return {
           kind: 'pay_blocked' as const,
-          payLabel: 'Pay repair balance',
-          hint: 'Waiting for your mechanic to submit the full repair quote.',
+          payLabel: ps.isInspectionFlow ? 'Pay repair balance' : 'Pay for this job',
+          hint: ps.isInspectionFlow
+            ? 'Waiting for your mechanic to submit the full repair quote.'
+            : 'Waiting for your mechanic to submit an updated cost breakdown.',
         }
       }
     }
@@ -489,6 +509,59 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     }
     return { kind: 'none' as const }
   }, [booking, quotes, showRating, ratingSkipped, publicFlags])
+
+  const whatsNext = useMemo(() => {
+    if (!booking) return null
+    const ps = booking.paymentSummary
+    return buildCustomerWhatsNext({
+      status: booking.status,
+      pendingQuoteCount: quotes.filter((q: any) => q.status === 'PENDING').length,
+      hasAssignedMechanic: Boolean(booking.mechanicId),
+      assignedMechanicName: booking.mechanic?.companyName,
+      paymentSummary: ps,
+      showAcceptRepairInvoice: ps?.phase === 'review_repair_invoice',
+      paidAt: booking.paidAt,
+    })
+  }, [booking, quotes])
+
+  useEffect(() => {
+    if (!booking) return
+    const pending = quotes.filter((q: any) => q.status === 'PENDING')
+    const clarifications = Array.isArray(booking.clarifications) ? booking.clarifications : []
+    const unanswered = clarifications.filter((c: any) => !c.answer).length
+    const ps = booking.paymentSummary
+    const paymentPhase = ps?.phase ?? ''
+    const showAcceptRepairInvoice = paymentPhase === 'review_repair_invoice'
+    const hasActivePayment =
+      Boolean(ps && (ps.canPayInspection || ps.canPayRepairBalance || ps.canPayStandard)) &&
+      PAYMENT_STATUSES.includes(booking.status)
+    const chatReleased = Boolean(booking.mechanicId && booking.status !== 'REQUESTED')
+    const focusKey = [
+      booking.id,
+      booking.status,
+      paymentPhase,
+      pending.length,
+      unanswered,
+      hasActivePayment,
+      showAcceptRepairInvoice,
+    ].join('|')
+    if (sectionFocusKeyRef.current === focusKey) return
+    sectionFocusKeyRef.current = focusKey
+    const focus = getBookingDetailSectionFocus({
+      status: booking.status,
+      pendingQuoteCount: pending.length,
+      unansweredClarificationCount: unanswered,
+      paymentPhase,
+      hasActivePayment,
+      showAcceptRepairInvoice,
+      chatReleased,
+    })
+    setJobDetailsExpanded(focus.jobDetails)
+    setQuotesExpanded(focus.quotes)
+    setQaExpanded(focus.qa)
+    setLocationAndSupportExpanded(focus.locationAndSupport)
+    setChatExpanded(focus.chat)
+  }, [booking, quotes])
 
   if (!id) {
     return (
@@ -514,22 +587,36 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
       ? `Pay balance: ₦${Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}`
       : 'Pay for this job'
   const showAcceptRepairInvoice = booking.paymentSummary?.phase === 'review_repair_invoice'
-  const paymentPhase = booking.paymentSummary?.phase
-  const showBlockedPayment =
-    paymentsEnabled &&
-    booking.paymentSummary?.isInspectionFlow &&
-    PAYMENT_STATUSES.includes(booking.status) &&
-    (paymentPhase === 'awaiting_repair_invoice' || paymentPhase === 'review_repair_invoice')
-  const blockedPaymentHint =
-    paymentPhase === 'awaiting_repair_invoice'
-      ? 'Available after your mechanic submits the full repair quote.'
-      : paymentPhase === 'review_repair_invoice' && booking.paymentSummary
-        ? `Accept the repair quote above first — then pay ₦${Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}.`
-        : null
-  const blockedPayLabel =
-    paymentPhase === 'review_repair_invoice' && booking.paymentSummary
-      ? `Pay repair balance: ₦${Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}`
-      : 'Pay repair balance'
+  const reviewQuoteTotalNaira =
+    booking.paymentSummary?.pendingRepairTotalNaira ??
+    booking.activeInvoice?.customerTotalNaira ??
+    null
+  const breakdownTotalNaira =
+    reviewQuoteTotalNaira ??
+    booking.activeInvoice?.customerTotalNaira ??
+    booking.pricingSummary?.customerTotalNaira ??
+    null
+  const customerBreakdownLines =
+    breakdownTotalNaira != null
+      ? {
+          partsNaira: Number(booking.activeInvoice?.partsNaira ?? booking.pricingSummary?.partsNaira ?? 0),
+          labourNaira: Number(booking.activeInvoice?.labourNaira ?? booking.pricingSummary?.labourNaira ?? 0),
+          otherFeesNaira: Number(booking.activeInvoice?.otherFeesNaira ?? booking.pricingSummary?.otherFeesNaira ?? 0),
+          totalNaira: Number(breakdownTotalNaira),
+          inspectionPaidNaira:
+            booking.paymentSummary?.inspectionPaidNaira > 0
+              ? Number(booking.paymentSummary.inspectionPaidNaira)
+              : undefined,
+          balanceDueNaira:
+            booking.paymentSummary?.balanceDueNaira != null
+              ? Number(booking.paymentSummary.balanceDueNaira)
+              : undefined,
+          previouslyAgreedNaira:
+            booking.pricingBaseline?.totalNaira != null
+              ? Number(booking.pricingBaseline.totalNaira)
+              : undefined,
+        }
+      : null
   const hasLocation =
     typeof (booking.locationLat ?? booking.location?.lat) === 'number' &&
     typeof (booking.locationLng ?? booking.location?.lng) === 'number'
@@ -630,6 +717,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             </View>
           </View>
           <BookingDetailProgressSteps status={booking.status} role="user" />
+          {whatsNext ? <BookingWhatsNextCard step={whatsNext} /> : null}
           {showReceipt ? (
             <TouchableOpacity
               style={styles.receiptRow}
@@ -712,42 +800,12 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             )}
           </BookingDetailAccordion>
 
-          {booking.paymentSummary?.isInspectionFlow && booking.status !== 'REQUESTED' ? (
-            <Card style={styles.paymentPhaseCard}>
-              <Text style={styles.paymentPhaseTitle}>Payment progress</Text>
-              {booking.paymentSummary.inspectionPaidNaira > 0 ? (
-                <Text style={styles.paymentPhaseLine}>
-                  Inspection paid: ₦{Number(booking.paymentSummary.inspectionPaidNaira).toLocaleString()}
-                </Text>
-              ) : (
-                <>
-                  <Text style={styles.paymentPhaseLine}>
-                    Inspection fee due: ₦{Number(booking.paymentSummary.inspectionFeeNaira).toLocaleString()}
-                  </Text>
-                  {booking.paymentSummary.canPayInspection ? (
-                    <Text style={styles.paymentPhaseHint}>
-                      Pay the inspection fee below so your mechanic can visit and diagnose the issue.
-                    </Text>
-                  ) : null}
-                </>
-              )}
-              {booking.paymentSummary.repairTotalNaira != null ? (
-                <>
-                  <Text style={styles.paymentPhaseLine}>
-                    Full repair total: ₦{Number(booking.paymentSummary.repairTotalNaira).toLocaleString()}
-                  </Text>
-                  {!booking.paidAt ? (
-                    <Text style={styles.paymentPhaseBalance}>
-                      Balance due: ₦{Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}
-                    </Text>
-                  ) : null}
-                </>
-              ) : booking.paymentSummary.phase === 'awaiting_repair_invoice' ? (
-                <Text style={styles.paymentPhaseHint}>
-                  Waiting for the mechanic to submit the full repair quote after the visit.
-                </Text>
-              ) : null}
-            </Card>
+          {showActivePayment && customerBreakdownLines ? (
+            <CustomerPriceBreakdown
+              lines={customerBreakdownLines}
+              title="What you are paying for"
+              defaultOpen
+            />
           ) : null}
 
           {showActivePayment ? (
@@ -771,41 +829,37 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
 
           {showAcceptRepairInvoice && booking.activeInvoice ? (
             <Card style={styles.repairInvoiceCard}>
-              <Text style={styles.paymentPhaseTitle}>Repair quote to review</Text>
-              <Text style={styles.paymentPhaseLine}>
-                Total: ₦{Number(booking.activeInvoice.customerTotalNaira).toLocaleString()}
-              </Text>
-              {booking.paymentSummary?.inspectionPaidNaira ? (
-                <Text style={styles.paymentPhaseLine}>
-                  Minus inspection paid: ₦{Number(booking.paymentSummary.inspectionPaidNaira).toLocaleString()}
-                </Text>
-              ) : null}
-              {booking.paymentSummary ? (
-                <Text style={styles.paymentPhaseBalance}>
-                  You will pay: ₦{Number(booking.paymentSummary.balanceDueNaira).toLocaleString()}
-                </Text>
+              {customerBreakdownLines ? (
+                <CustomerPriceBreakdown
+                  lines={customerBreakdownLines}
+                  title="Updated price breakdown"
+                  defaultOpen
+                />
               ) : null}
               <Button
-                title={acceptingInvoice ? 'Accepting…' : 'Accept repair quote'}
+                title={acceptingInvoice ? 'Accepting…' : 'Accept quote'}
                 onPress={acceptInvoice}
                 loading={acceptingInvoice}
+                disabled={rejectingInvoice}
                 style={styles.acceptInvoiceBtn}
               />
-            </Card>
-          ) : null}
-
-          {showBlockedPayment && blockedPaymentHint ? (
-            <Card style={styles.blockedPaymentCard}>
-              <Text style={styles.blockedPaymentLabel}>{blockedPayLabel}</Text>
-              <Button title="Pay with Paystack" onPress={() => {}} disabled style={styles.blockedPayBtn} />
-              <Button
-                title="I paid the mechanic directly"
-                onPress={() => {}}
-                disabled
-                variant="outline"
-                style={styles.blockedPayBtn}
+              <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Decline this quote</Text>
+              <TextInput
+                style={styles.rejectReasonInput}
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                placeholder="Tell the mechanic why (e.g. price too high)"
+                placeholderTextColor={colors.neutral[400]}
+                multiline
               />
-              <Text style={styles.blockedPaymentHint}>{blockedPaymentHint}</Text>
+              <Button
+                title={rejectingInvoice ? 'Sending…' : 'Decline quote'}
+                onPress={rejectInvoice}
+                loading={rejectingInvoice}
+                disabled={acceptingInvoice}
+                variant="outline"
+                style={styles.acceptInvoiceBtn}
+              />
             </Card>
           ) : null}
 
@@ -839,6 +893,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                   <Text style={styles.quotesHint}>Tap Accept on the quote you want.</Text>
                   {pendingQuotes.map((q: any) => {
                     const quoteMechPhone = mechanicPhone(q.mechanic)
+                    const quoteBreakdown = quoteToPriceBreakdownLines(q)
                     return (
                     <View key={q.id} style={styles.quoteCard}>
                       <View style={styles.quoteMechRow}>
@@ -868,13 +923,13 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                           Full repair quote after the mechanic checks your vehicle on site.
                         </Text>
                       ) : null}
-                      {(q.partsNaira > 0 || q.labourNaira > 0) && !isQuoteInspection(q) && (
-                        <Text style={styles.quoteBreakdown}>
-                          {q.partsNaira > 0 ? `Parts ₦${Number(q.partsNaira).toLocaleString()}` : ''}
-                          {q.partsNaira > 0 && q.labourNaira > 0 ? ' · ' : ''}
-                          {q.labourNaira > 0 ? `Labour ₦${Number(q.labourNaira).toLocaleString()}` : ''}
-                        </Text>
-                      )}
+                      {quoteBreakdown ? (
+                        <CustomerPriceBreakdown
+                          lines={quoteBreakdown}
+                          title="Quote breakdown"
+                          defaultOpen={pendingQuotes.length === 1}
+                        />
+                      ) : null}
                       {q.message ? (
                         <Text style={styles.quoteMessage}>{q.message}</Text>
                       ) : null}
@@ -956,57 +1011,59 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
             </Text>
           )}
 
-          {booking.status !== 'EXPIRED' && (
+          {(hasLocation || booking.status !== 'EXPIRED') && (
             <BookingDetailAccordion
-              title="Safety & support"
-              subtitle="Protection, payments, and how to get help with this job"
-              icon="shield-checkmark-outline"
-              iconVariant="blue"
-              expanded={safetyExpanded}
-              onToggle={() => setSafetyExpanded((v) => !v)}
-            >
-              <Text style={styles.safetyHint}>
-                Use report for behaviour or safety concerns. Use dispute for payment or work quality
-                issues. You can block a mechanic if you no longer want them to contact you.
-              </Text>
-              <View style={styles.safetyActions}>
-                <Button title="Report" variant="outline" onPress={() => setReportOpen(true)} />
-                {showDisputeBtn ? (
-                  <Button title="Dispute" variant="outline" onPress={() => setDisputeOpen(true)} />
-                ) : null}
-                {booking.mechanic?.id ? (
-                  <Button
-                    title={blockSubmitting ? 'Blocking…' : 'Block mechanic'}
-                    variant="outline"
-                    onPress={blockMechanic}
-                    disabled={blockSubmitting}
-                  />
-                ) : null}
-              </View>
-              {booking.disputeReason ? (
-                <Text style={styles.disputeNote}>Dispute recorded: {booking.disputeReason}</Text>
-              ) : null}
-            </BookingDetailAccordion>
-          )}
-
-          {hasLocation && (
-            <BookingDetailAccordion
-              title="Job location"
-              subtitle="Where the work happens. Open in Maps when you are ready to go"
+              title="Location & support"
+              subtitle={
+                hasLocation
+                  ? 'Where the work happens, plus report or dispute if needed'
+                  : 'Report, dispute, or block if you need help'
+              }
               icon="location-outline"
               iconVariant="green"
-              expanded={locationExpanded}
-              onToggle={() => setLocationExpanded((v) => !v)}
+              expanded={locationAndSupportExpanded}
+              onToggle={() => setLocationAndSupportExpanded((v) => !v)}
             >
-              <View style={styles.locationBlock}>
-                <Text style={styles.locationAddress} numberOfLines={4}>
-                  {formatJobAddress(booking)}
-                </Text>
-                <TouchableOpacity style={styles.mapLink} onPress={openMap}>
-                  <Ionicons name="map" size={20} color={colors.primary[600]} />
-                  <Text style={styles.mapLinkText}>Open in Maps</Text>
-                </TouchableOpacity>
-              </View>
+              {hasLocation ? (
+                <View style={styles.locationBlock}>
+                  <Text style={[styles.sectionLabel, styles.sectionLabelInCollapse]}>Job address</Text>
+                  <Text style={styles.locationAddress} numberOfLines={4}>
+                    {formatJobAddress(booking)}
+                  </Text>
+                  <TouchableOpacity style={styles.mapLink} onPress={openMap}>
+                    <Ionicons name="map" size={20} color={colors.primary[600]} />
+                    <Text style={styles.mapLinkText}>Open in Maps</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              {booking.status !== 'EXPIRED' ? (
+                <>
+                  <Text style={[styles.sectionLabel, styles.sectionLabelInCollapse, hasLocation && { marginTop: 16 }]}>
+                    Help & safety
+                  </Text>
+                  <Text style={styles.safetyHint}>
+                    Report behaviour or safety issues. Dispute payment or work quality. Block a mechanic to hide them
+                    from search.
+                  </Text>
+                  <View style={styles.safetyActions}>
+                    <Button title="Report" variant="outline" onPress={() => setReportOpen(true)} />
+                    {showDisputeBtn ? (
+                      <Button title="Dispute" variant="outline" onPress={() => setDisputeOpen(true)} />
+                    ) : null}
+                    {booking.mechanic?.id ? (
+                      <Button
+                        title={blockSubmitting ? 'Blocking…' : 'Block mechanic'}
+                        variant="outline"
+                        onPress={blockMechanic}
+                        disabled={blockSubmitting}
+                      />
+                    ) : null}
+                  </View>
+                  {booking.disputeReason ? (
+                    <Text style={styles.disputeNote}>Dispute recorded: {booking.disputeReason}</Text>
+                  ) : null}
+                </>
+              ) : null}
             </BookingDetailAccordion>
           )}
         </>
@@ -1405,6 +1462,18 @@ const styles = StyleSheet.create({
   paymentPhaseHint: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary, marginTop: 4 },
   repairInvoiceCard: { marginBottom: 12, padding: 16 },
   acceptInvoiceBtn: { marginTop: 12 },
+  rejectReasonInput: {
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    color: colors.text,
+    marginTop: 8,
+  },
   quotesHint: {
     fontSize: 14,
     color: colors.textSecondary,

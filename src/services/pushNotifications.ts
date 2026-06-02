@@ -4,7 +4,7 @@ import { Alert, Platform } from 'react-native'
 import Constants from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
-  GARAGE_PING_SOUND,
+  NOTIFICATION_ALERT_SOUND,
   ANDROID_ALERTS_CHANNEL,
   ANDROID_BOOKINGS_CHANNEL,
   ANDROID_DEFAULT_CHANNEL,
@@ -24,7 +24,7 @@ Notifications.setNotificationHandler({
 })
 
 function androidChannelSound() {
-  return GARAGE_PING_SOUND
+  return NOTIFICATION_ALERT_SOUND
 }
 
 export function configureAndroidNotificationChannels() {
@@ -107,7 +107,7 @@ export async function requestPushPermissionsWithPrimer(): Promise<boolean> {
     await new Promise<void>((resolve) => {
       Alert.alert(
         'Stay in the loop',
-        'Allow notifications to get instant alerts for new quotes, messages, and job updates — even when your phone is locked.',
+        'Allow notifications to get instant alerts for new quotes, messages, and job updates, even when your phone is locked.',
         [{ text: 'Continue', onPress: () => resolve() }],
         { cancelable: false },
       )
@@ -148,13 +148,20 @@ export function resolveAndroidChannelId(channelId?: string | null): string {
   switch (channelId) {
     case 'alerts':
     case 'alerts-v2':
+    case 'alerts-v3':
       return ANDROID_ALERTS_CHANNEL
     case 'messages':
     case 'messages-v2':
+    case 'messages-v3':
       return ANDROID_MESSAGES_CHANNEL
     case 'bookings':
     case 'bookings-v2':
+    case 'bookings-v3':
       return ANDROID_BOOKINGS_CHANNEL
+    case 'default':
+    case 'default-v2':
+    case 'default-v3':
+      return ANDROID_DEFAULT_CHANNEL
     default:
       return ANDROID_DEFAULT_CHANNEL
   }

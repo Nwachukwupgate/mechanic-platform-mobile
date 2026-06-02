@@ -30,6 +30,10 @@ import { BookingDetailAccordion } from '../../components/bookingDetail/BookingDe
 import { BookingDetailProgressSteps } from '../../components/bookingDetail/BookingDetailProgressSteps'
 import { BookingHeroDecor } from '../../components/bookingDetail/BookingHeroDecor'
 import { BookingPhotoGallery } from '../../components/bookingDetail/BookingPhotoGallery'
+import { PricingBaselineBanner, fieldPlaceholder } from '../../components/PricingBaselineHints'
+import { MechanicCostStatusBanner } from '../../components/bookingDetail/MechanicCostStatusBanner'
+import type { PricingBaseline } from '../../components/PricingBaselineHints'
+import { isLabourMissing, LABOUR_REQUIRED_MESSAGE } from '../../utils/priceBreakdownDisplay'
 
 export function MechanicBookingDetailScreen({ route, navigation }: { route: any; navigation: any }) {
   const id =
@@ -133,7 +137,12 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const saveCosting = async () => {
+    const labour = parseFloat(labourCost) || 0
     const total = quoteTotal()
+    if (isLabourMissing(labour)) {
+      Alert.alert('Labour required', LABOUR_REQUIRED_MESSAGE)
+      return
+    }
     if (total <= 0) {
       Alert.alert('Required', 'Enter parts, labour, or other fees')
       return
@@ -154,6 +163,10 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const submitRepairInvoice = async () => {
+    if (isLabourMissing(parseFloat(labourCost) || 0)) {
+      Alert.alert('Labour required', LABOUR_REQUIRED_MESSAGE)
+      return
+    }
     setSubmittingInvoice(true)
     try {
       await bookingsAPI.submitInvoice(id)
@@ -168,11 +181,20 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
 
   const submitQuote = async () => {
     const isInspection = quoteType === 'INSPECTION'
-    const total = isInspection ? parseFloat(labourCost) || 0 : quoteTotal()
+    const labour = parseFloat(labourCost) || 0
+    const total = isInspection ? labour : quoteTotal()
     if (total <= 0) {
       Alert.alert('Required', isInspection ? 'Enter an inspection / diagnosis fee' : 'Enter a valid cost breakdown')
       return
     }
+    if (!isInspection && isLabourMissing(labour)) {
+      Alert.alert('Labour required', LABOUR_REQUIRED_MESSAGE)
+      return
+    }
+    await doSubmitQuote(isInspection, total)
+  }
+
+  const doSubmitQuote = async (isInspection: boolean, total: number) => {
     setSubmittingQuote(true)
     try {
       await bookingsAPI.createQuote(id, {
@@ -191,8 +213,14 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const updateQuote = async () => {
+    const labour = parseFloat(labourCost) || 0
     const total = quoteTotal()
-    if (total <= 0 || !myQuote) return
+    if (!myQuote) return
+    if (isLabourMissing(labour)) {
+      Alert.alert('Labour required', LABOUR_REQUIRED_MESSAGE)
+      return
+    }
+    if (total <= 0) return
     setUpdatingQuote(true)
     try {
       await bookingsAPI.updateQuote(id, myQuote.id, {
@@ -378,7 +406,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               <Text style={styles.inspectionPaymentStatusTitle}>Inspection payment</Text>
               {booking.inspectionPaidAt ? (
                 <Text style={styles.inspectionPaymentStatusPaid}>
-                  Paid: ₦{Number(booking.inspectionPaidAmount ?? booking.estimatedCost ?? 0).toLocaleString()} — you
+                  Paid: ₦{Number(booking.inspectionPaidAmount ?? booking.estimatedCost ?? 0).toLocaleString()}. You
                   can start work and submit the full repair quote.
                 </Text>
               ) : (
@@ -436,28 +464,39 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
           {canEditRepairCosting ? (
             <View style={styles.costBreakdownBlock}>
               <Text style={styles.costBreakdownTitle}>
-                {isInspectionJob ? 'Full repair quote' : 'Job costing'}
+                {isInspectionJob ? 'Step 2: Full repair quote (after visit)' : 'Step 2: Job costing (customer approves changes)'}
               </Text>
-              {repairInvoiceLocked ? (
+              <Text style={styles.inspectionHint}>
+                {isInspectionJob
+                  ? 'The customer pays only the balance after accepting. They already paid the inspection fee separately.'
+                  : 'Send for approval if the final cost differs from your accepted bid. Labour is required; platform fees apply to labour only.'}
+              </Text>
+              {booking.paymentSummary?.inspectionPaidNaira ? (
                 <Text style={styles.inspectionHint}>
-                  {repairInvoiceStatus === 'SUBMITTED'
-                    ? 'Waiting for the customer to accept this repair quote. You cannot edit it until they respond.'
-                    : 'Repair quote accepted — the customer can pay the balance.'}
+                  Customer already paid ₦{Number(booking.paymentSummary.inspectionPaidNaira).toLocaleString()} for inspection.
                 </Text>
               ) : null}
+              <MechanicCostStatusBanner
+                status={repairInvoiceStatus}
+                rejectionReason={booking.activeInvoice?.rejectionReason}
+                balanceDueNaira={booking.paymentSummary?.balanceDueNaira}
+              />
+              <PricingBaselineBanner baseline={booking.pricingBaseline as PricingBaseline | undefined} compact />
               <Input
                 label="Parts / materials (₦)"
                 value={partsCost}
                 onChangeText={setPartsCost}
                 keyboardType="decimal-pad"
                 editable={!repairInvoiceLocked}
+                placeholder={fieldPlaceholder('parts', booking.pricingBaseline)}
               />
               <Input
-                label="Labour / service (₦)"
+                label="Labour / workmanship (₦) *"
                 value={labourCost}
                 onChangeText={setLabourCost}
                 keyboardType="decimal-pad"
                 editable={!repairInvoiceLocked}
+                placeholder={fieldPlaceholder('labour', booking.pricingBaseline)}
               />
               <Input
                 label="Other fees (₦)"
@@ -465,12 +504,17 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 onChangeText={setOtherFees}
                 keyboardType="decimal-pad"
                 editable={!repairInvoiceLocked}
+                placeholder={fieldPlaceholder('other', booking.pricingBaseline)}
               />
               <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
               {isInspectionJob && booking.inspectionPaidAmount ? (
                 <Text style={styles.costTotal}>
-                  Customer balance after inspection credit: ₦
+                  Customer pays after acceptance: ₦
                   {Math.max(0, quoteTotal() - Number(booking.inspectionPaidAmount)).toLocaleString()}
+                </Text>
+              ) : booking.pricingBaseline && !isInspectionJob ? (
+                <Text style={styles.costTotal}>
+                  Previously agreed: ₦{Number(booking.pricingBaseline.totalNaira).toLocaleString()}
                 </Text>
               ) : null}
               <Button
@@ -493,7 +537,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 <Text style={styles.inspectionHint}>Waiting for customer to accept this repair quote.</Text>
               ) : null}
               {repairInvoiceStatus === 'ACCEPTED' ? (
-                <Text style={styles.inspectionHint}>Repair quote accepted — customer can pay the balance.</Text>
+                <Text style={styles.inspectionHint}>Repair quote accepted. Customer can pay the balance.</Text>
               ) : null}
             </View>
           ) : null}
@@ -507,9 +551,9 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
         </BookingDetailAccordion>
 
         {canQuoteWhileRequested ? (
-          <BookingDetailAccordion
-            title="Your quote & questions"
-            subtitle="Price the job, ask questions, or offer an inspection visit before they accept"
+        <BookingDetailAccordion
+          title="Step 1: Your bid & questions"
+          subtitle="Price the job or offer an inspection visit before the customer accepts"
             icon="pricetags-outline"
             iconVariant="amber"
             expanded={quoteAccordionExpanded}
@@ -539,7 +583,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                   <View style={styles.rejectedQuoteBanner}>
                     <Text style={styles.rejectedQuoteTitle}>Quote declined</Text>
                     <Text style={styles.rejectedQuoteText}>
-                      The customer rejected your inspection fee. Update the amount below and submit again — they’ll
+                      The customer rejected your inspection fee. Update the amount below and submit again. They’ll
                       see the new quote in their app.
                     </Text>
                   </View>
@@ -565,7 +609,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                   multiline
                 />
                 <Button
-                  title={myQuote ? 'Update inspection quote' : 'Submit inspection quote'}
+                  title={myQuote ? 'Update inspection bid' : 'Submit inspection bid'}
                   onPress={submitQuote}
                   loading={submittingQuote || updatingQuote}
                 />
@@ -574,9 +618,9 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
               <View style={styles.quoteBlock}>
                 {myQuote.status === 'REJECTED' ? (
                   <View style={styles.rejectedQuoteBanner}>
-                    <Text style={styles.rejectedQuoteTitle}>Quote declined</Text>
+                    <Text style={styles.rejectedQuoteTitle}>Bid declined</Text>
                     <Text style={styles.rejectedQuoteText}>
-                      The customer rejected this quote. Adjust your price below and tap Update quote to send it again.
+                      The customer rejected this bid. Adjust your price below and tap Update bid price.
                     </Text>
                   </View>
                 ) : null}
@@ -584,20 +628,72 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 <Text style={styles.quoteStatus}>Status: {quoteStatusLabel(myQuote.status)}</Text>
                 {myQuote.status === 'PENDING' || myQuote.status === 'REJECTED' ? (
                   <>
-                    <Input label="Parts (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
-                    <Input label="Labour (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
-                    <Input label="Other (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
+                    <PricingBaselineBanner
+                      baseline={{
+                        partsNaira: Number(myQuote.partsNaira ?? 0),
+                        labourNaira: Number(myQuote.labourNaira ?? myQuote.proposedPrice ?? 0),
+                        otherFeesNaira: Number(myQuote.otherFeesNaira ?? 0),
+                        totalNaira: Number(myQuote.proposedPrice ?? 0),
+                        label: 'Your current bid',
+                      }}
+                      compact
+                    />
+                    <Input
+                      label="Parts (₦)"
+                      value={partsCost}
+                      onChangeText={setPartsCost}
+                      keyboardType="decimal-pad"
+                      placeholder={fieldPlaceholder('parts', {
+                        partsNaira: Number(myQuote.partsNaira ?? 0),
+                        labourNaira: Number(myQuote.labourNaira ?? 0),
+                        otherFeesNaira: Number(myQuote.otherFeesNaira ?? 0),
+                        totalNaira: Number(myQuote.proposedPrice ?? 0),
+                        label: '',
+                      })}
+                    />
+                    <Input
+                      label="Labour / workmanship (₦) *"
+                      value={labourCost}
+                      onChangeText={setLabourCost}
+                      keyboardType="decimal-pad"
+                      placeholder={fieldPlaceholder('labour', {
+                        partsNaira: 0,
+                        labourNaira: Number(myQuote.labourNaira ?? myQuote.proposedPrice ?? 0),
+                        otherFeesNaira: 0,
+                        totalNaira: Number(myQuote.proposedPrice ?? 0),
+                        label: '',
+                      })}
+                    />
+                    <Input
+                      label="Other (₦)"
+                      value={otherFees}
+                      onChangeText={setOtherFees}
+                      keyboardType="decimal-pad"
+                      placeholder={fieldPlaceholder('other', {
+                        partsNaira: 0,
+                        labourNaira: 0,
+                        otherFeesNaira: Number(myQuote.otherFeesNaira ?? 0),
+                        totalNaira: 0,
+                        label: '',
+                      })}
+                    />
                     <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
-                    <Button title="Update quote" onPress={updateQuote} loading={updatingQuote} />
+                    <Button title="Update bid price" onPress={updateQuote} loading={updatingQuote} />
                   </>
                 ) : null}
               </View>
             ) : (
               <>
-                <Input label="Parts (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
-                <Input label="Labour (₦)" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
-                <Input label="Other (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
+                <Text style={styles.inspectionHint}>
+                  Labour is required (platform fee applies to labour only). Add parts and other fees if needed.
+                </Text>
+                <Input label="Parts / materials (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
+                <Input label="Labour / workmanship (₦) *" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
+                <Input label="Other fees (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
                 <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>
+                {quoteTotal() > 0 && isLabourMissing(parseFloat(labourCost) || 0) ? (
+                  <Text style={styles.breakdownTip}>{LABOUR_REQUIRED_MESSAGE}</Text>
+                ) : null}
                 <TextInput
                   style={styles.quoteMessageInput}
                   value={quoteMessage}
@@ -904,6 +1000,16 @@ const styles = StyleSheet.create({
   },
   quoteTypeText: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary },
   quoteTypeTextActive: { color: colors.brand.primary, fontFamily: fonts.semiBold },
+  breakdownTip: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: '#b45309',
+    lineHeight: 18,
+    marginBottom: 10,
+    backgroundColor: '#fffbeb',
+    padding: 10,
+    borderRadius: 8,
+  },
   inspectionHint: {
     fontSize: 14,
     fontFamily: fonts.regular,

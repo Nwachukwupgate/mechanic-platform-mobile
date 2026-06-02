@@ -603,7 +603,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
               <SectionHeader icon="images" title="Photos" first />
           <Text style={styles.filterHint}>
             Add at least {RECOMMENDED_JOB_PHOTOS} clear photos when you can. Mechanics quote from your notes and
-            images — you can also call them while comparing quotes.
+            images. You can also call them while comparing quotes.
           </Text>
           <View style={styles.jobPhotoRow}>
             {jobPhotos.map((p, idx) => (
@@ -651,7 +651,7 @@ export function FindMechanicsScreen({ navigation, route = {} }: { navigation: an
           </ScrollView>
               <SectionHeader icon="document-text" title="Describe the issue" />
           <Text style={styles.filterHint}>
-            Optional — include when it started, symptoms, warning lights, and sounds if you can.
+            Optional. Include when it started, symptoms, warning lights, and sounds if you can.
           </Text>
           <TextInput
             style={styles.notesInput}

@@ -823,7 +823,7 @@ export function MechanicProfileScreen() {
               style={styles.inputSpaced}
             />
             <Text style={styles.cityStateIntro}>
-              City and state — tap each box below and type (same as a normal form field).
+              City and state: tap each box below and type (same as a normal form field).
             </Text>
             <View style={styles.row}>
               <View style={styles.cityStateCol}>

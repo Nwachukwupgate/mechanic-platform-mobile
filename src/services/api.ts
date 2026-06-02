@@ -286,6 +286,8 @@ export const bookingsAPI = {
   ) => api.put(`/bookings/${id}/invoice`, data),
   submitInvoice: (id: string) => api.put(`/bookings/${id}/invoice/submit`),
   acceptInvoice: (id: string) => api.put(`/bookings/${id}/invoice/accept`),
+  rejectInvoice: (id: string, reason: string) =>
+    api.put(`/bookings/${id}/invoice/reject`, { reason }),
   getOpenRequests: (radius?: number) =>
     api.get('/bookings/open-requests', { params: radius != null ? { radius } : {} }),
   getQuotes: (bookingId: string) => api.get(`/bookings/${bookingId}/quotes`),

@@ -29,8 +29,8 @@ module.exports = {
         'expo-notifications',
         {
           color: '#16a34a',
-          sounds: ['./assets/sounds/garage_ping.wav'],
-          defaultChannel: 'alerts-v2',
+          sounds: ['./assets/sounds/truck_horn.wav'],
+          defaultChannel: 'alerts-v3',
           enableBackgroundRemoteNotifications: true,
         },
       ],

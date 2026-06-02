@@ -1,7 +1,7 @@
 export function quoteStatusLabel(status: string | undefined): string {
   switch (status) {
     case 'PENDING':
-      return 'Pending — waiting for customer'
+      return 'Pending: waiting for customer'
     case 'ACCEPTED':
       return 'Accepted by customer'
     case 'REJECTED':
