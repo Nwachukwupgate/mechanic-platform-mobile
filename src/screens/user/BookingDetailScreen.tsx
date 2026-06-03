@@ -600,6 +600,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
     breakdownTotalNaira != null
       ? {
           partsNaira: Number(booking.activeInvoice?.partsNaira ?? booking.pricingSummary?.partsNaira ?? 0),
+          partsLineItems:
+            booking.activeInvoice?.partsLineItems ?? booking.pricingSummary?.partsLineItems ?? undefined,
           labourNaira: Number(booking.activeInvoice?.labourNaira ?? booking.pricingSummary?.labourNaira ?? 0),
           otherFeesNaira: Number(booking.activeInvoice?.otherFeesNaira ?? booking.pricingSummary?.otherFeesNaira ?? 0),
           totalNaira: Number(breakdownTotalNaira),

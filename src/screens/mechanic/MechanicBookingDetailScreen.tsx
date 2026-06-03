@@ -34,6 +34,26 @@ import { PricingBaselineBanner, fieldPlaceholder } from '../../components/Pricin
 import { MechanicCostStatusBanner } from '../../components/bookingDetail/MechanicCostStatusBanner'
 import type { PricingBaseline } from '../../components/PricingBaselineHints'
 import { isLabourMissing, LABOUR_REQUIRED_MESSAGE } from '../../utils/priceBreakdownDisplay'
+import { PartLineItemsEditor } from '../../components/PartLineItemsEditor'
+import type { PartLineItem } from '../../types/partLineItems'
+import { emptyPartLine, partLinesFromQuote, sumPartLines } from '../../types/partLineItems'
+
+function activePartLines(items: PartLineItem[]) {
+  return items.filter((r) => r.name.trim() && Number(r.amountNaira) > 0)
+}
+
+function partsPayload(items: PartLineItem[]) {
+  const lines = activePartLines(items)
+  const total = sumPartLines(lines)
+  return {
+    partsCost: total,
+    partsLineItems: lines.map((r) => ({
+      name: r.name.trim(),
+      amountNaira: Number(r.amountNaira),
+      ...(r.note?.trim() ? { note: r.note.trim() } : {}),
+    })),
+  }
+}
 
 export function MechanicBookingDetailScreen({ route, navigation }: { route: any; navigation: any }) {
   const id =
@@ -44,6 +64,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const [loading, setLoading] = useState(true)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [partsCost, setPartsCost] = useState('')
+  const [partLineItems, setPartLineItems] = useState<PartLineItem[]>([emptyPartLine()])
   const [labourCost, setLabourCost] = useState('')
   const [otherFees, setOtherFees] = useState('')
   const [updatingCost, setUpdatingCost] = useState(false)
@@ -87,14 +108,18 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       setMyQuote(mine || null)
       if (mine) {
         setQuoteType(mine.quoteType === 'INSPECTION' ? 'INSPECTION' : 'STANDARD')
-        setPartsCost(String(mine.partsNaira ?? 0))
+        const lines = partLinesFromQuote(mine)
+        setPartLineItems(lines.length ? lines : [emptyPartLine()])
+        setPartsCost(String(mine.partsNaira ?? sumPartLines(lines)))
         setLabourCost(String(mine.labourNaira ?? mine.proposedPrice ?? ''))
         setOtherFees(String(mine.otherFeesNaira ?? 0))
         setQuoteMessage(mine.message ?? '')
       }
       const inv = b.activeInvoice
       if (inv) {
-        setPartsCost(String(inv.partsNaira ?? 0))
+        const lines = partLinesFromQuote(inv)
+        setPartLineItems(lines.length ? lines : [emptyPartLine()])
+        setPartsCost(String(inv.partsNaira ?? sumPartLines(lines)))
         setLabourCost(String(inv.labourNaira ?? 0))
         setOtherFees(String(inv.otherFeesNaira ?? 0))
       }
@@ -130,10 +155,20 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   }
 
   const quoteTotal = () => {
-    const p = parseFloat(partsCost) || 0
+    const p = sumPartLines(activePartLines(partLineItems)) || parseFloat(partsCost) || 0
     const l = parseFloat(labourCost) || 0
     const o = parseFloat(otherFees) || 0
     return p + l + o
+  }
+
+  const ensurePartsListed = (partsTotal: number) => {
+    if (partsTotal <= 0) return true
+    if (activePartLines(partLineItems).length > 0) return true
+    Alert.alert(
+      'List each part',
+      'Add each part with its price and a short note so the customer knows what they are paying for.',
+    )
+    return false
   }
 
   const saveCosting = async () => {
@@ -147,10 +182,12 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       Alert.alert('Required', 'Enter parts, labour, or other fees')
       return
     }
+    const parts = partsPayload(partLineItems)
+    if (!ensurePartsListed(parts.partsCost)) return
     setUpdatingCost(true)
     try {
       await bookingsAPI.upsertInvoice(id, {
-        partsCost: parseFloat(partsCost) || 0,
+        ...parts,
         labourCost: parseFloat(labourCost) || 0,
         otherFees: parseFloat(otherFees) || 0,
       })
@@ -191,15 +228,20 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       Alert.alert('Labour required', LABOUR_REQUIRED_MESSAGE)
       return
     }
+    if (!isInspection) {
+      const parts = partsPayload(partLineItems)
+      if (!ensurePartsListed(parts.partsCost)) return
+    }
     await doSubmitQuote(isInspection, total)
   }
 
   const doSubmitQuote = async (isInspection: boolean, total: number) => {
     setSubmittingQuote(true)
     try {
+      const parts = isInspection ? { partsCost: 0, partsLineItems: [] as { name: string; amountNaira: number; note?: string }[] } : partsPayload(partLineItems)
       await bookingsAPI.createQuote(id, {
         quoteType,
-        partsCost: isInspection ? 0 : parseFloat(partsCost) || 0,
+        ...parts,
         labourCost: isInspection ? total : parseFloat(labourCost) || 0,
         otherFees: isInspection ? 0 : parseFloat(otherFees) || 0,
         message: quoteMessage.trim() || undefined,
@@ -221,10 +263,12 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
       return
     }
     if (total <= 0) return
+    const parts = partsPayload(partLineItems)
+    if (!ensurePartsListed(parts.partsCost)) return
     setUpdatingQuote(true)
     try {
       await bookingsAPI.updateQuote(id, myQuote.id, {
-        partsCost: parseFloat(partsCost) || 0,
+        ...parts,
         labourCost: parseFloat(labourCost) || 0,
         otherFees: parseFloat(otherFees) || 0,
       })
@@ -482,13 +526,10 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 balanceDueNaira={booking.paymentSummary?.balanceDueNaira}
               />
               <PricingBaselineBanner baseline={booking.pricingBaseline as PricingBaseline | undefined} compact />
-              <Input
-                label="Parts / materials (₦)"
-                value={partsCost}
-                onChangeText={setPartsCost}
-                keyboardType="decimal-pad"
-                editable={!repairInvoiceLocked}
-                placeholder={fieldPlaceholder('parts', booking.pricingBaseline)}
+              <PartLineItemsEditor
+                items={partLineItems}
+                onChange={setPartLineItems}
+                onPartsTotalChange={(n) => setPartsCost(String(n))}
               />
               <Input
                 label="Labour / workmanship (₦) *"
@@ -638,18 +679,10 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                       }}
                       compact
                     />
-                    <Input
-                      label="Parts (₦)"
-                      value={partsCost}
-                      onChangeText={setPartsCost}
-                      keyboardType="decimal-pad"
-                      placeholder={fieldPlaceholder('parts', {
-                        partsNaira: Number(myQuote.partsNaira ?? 0),
-                        labourNaira: Number(myQuote.labourNaira ?? 0),
-                        otherFeesNaira: Number(myQuote.otherFeesNaira ?? 0),
-                        totalNaira: Number(myQuote.proposedPrice ?? 0),
-                        label: '',
-                      })}
+                    <PartLineItemsEditor
+                      items={partLineItems}
+                      onChange={setPartLineItems}
+                      onPartsTotalChange={(n) => setPartsCost(String(n))}
                     />
                     <Input
                       label="Labour / workmanship (₦) *"
@@ -687,7 +720,11 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                 <Text style={styles.inspectionHint}>
                   Labour is required (platform fee applies to labour only). Add parts and other fees if needed.
                 </Text>
-                <Input label="Parts / materials (₦)" value={partsCost} onChangeText={setPartsCost} keyboardType="decimal-pad" />
+                <PartLineItemsEditor
+                  items={partLineItems}
+                  onChange={setPartLineItems}
+                  onPartsTotalChange={(n) => setPartsCost(String(n))}
+                />
                 <Input label="Labour / workmanship (₦) *" value={labourCost} onChangeText={setLabourCost} keyboardType="decimal-pad" />
                 <Input label="Other fees (₦)" value={otherFees} onChangeText={setOtherFees} keyboardType="decimal-pad" />
                 <Text style={styles.costTotal}>Total: ₦{quoteTotal().toLocaleString()}</Text>

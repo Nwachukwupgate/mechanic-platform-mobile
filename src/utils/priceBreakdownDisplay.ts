@@ -54,7 +54,15 @@ export function getBreakdownDisplay(
   }
 
   const rows: BreakdownDisplayRow[] = []
-  if (a.parts > 0) rows.push({ label: 'Parts / materials', valueNaira: a.parts })
+  const partLines = lines.partsLineItems?.filter((p) => p.name?.trim() && Number(p.amountNaira) > 0)
+  if (partLines?.length) {
+    for (const p of partLines) {
+      const label = p.note?.trim() ? `${p.name} (${p.note})` : p.name
+      rows.push({ label, valueNaira: Number(p.amountNaira) })
+    }
+  } else if (a.parts > 0) {
+    rows.push({ label: 'Parts / materials', valueNaira: a.parts })
+  }
   if (a.labour > 0) rows.push({ label: labourLabel, valueNaira: a.labour })
   if (a.other > 0) rows.push({ label: 'Other fees', valueNaira: a.other })
   if (a.hasUnallocated) {
