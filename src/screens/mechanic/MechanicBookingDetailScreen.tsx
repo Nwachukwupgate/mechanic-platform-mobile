@@ -20,7 +20,7 @@ import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } fr
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
-import { canShowBookingContactPhone, customerPhone } from '../../utils/bookingContact'
+import { bookingContactLockedHint, canShowBookingContactPhone, customerPhone } from '../../utils/bookingContact'
 import { quoteStatusLabel } from '../../utils/quoteStatusLabel'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
@@ -351,11 +351,7 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
   const custPhone = canShowBookingContactPhone(booking) ? customerPhone(booking.user) : undefined
   const contactLockedHint =
     !custPhone && booking.mechanicId === currentUserId
-      ? isInspectionJob && !booking.inspectionPaidAt
-        ? 'Customer phone unlocks after they pay the inspection fee.'
-        : status === 'REQUESTED' || !booking.acceptedQuoteId
-          ? 'Customer phone unlocks after they accept your quote.'
-          : null
+      ? bookingContactLockedHint(booking, 'mechanic')
       : null
 
   return (

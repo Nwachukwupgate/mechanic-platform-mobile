@@ -28,7 +28,7 @@ import { connectSocket, onQuoteEvents, onNewMessage, onBookingStatusChanged } fr
 import { colors } from '../../theme/colors'
 import { fonts } from '../../theme/fonts'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
-import { canShowBookingContactPhone, mechanicPhone } from '../../utils/bookingContact'
+import { bookingContactLockedHint, canShowBookingContactPhone, mechanicPhone } from '../../utils/bookingContact'
 import { isQuoteInspection, quoteTypeLabel } from '../../utils/jobPostingValidation'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
@@ -639,6 +639,7 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
 
   const bookingStatusBadge = bookingStatusBadgeColors(booking.status)
   const mechPhone = canShowBookingContactPhone(booking) ? mechanicPhone(booking.mechanic) : undefined
+  const mechanicContactHint = booking.mechanic ? bookingContactLockedHint(booking, 'customer') : null
 
   const stickyPad =
     primaryBar.kind === 'none'
@@ -698,7 +699,8 @@ export function BookingDetailScreen({ route, navigation }: { route: any; navigat
                       {booking.mechanic.companyName}
                     </Text>
                     <Text style={styles.mechSub} numberOfLines={2}>
-                      {booking.mechanic.ownerFullName}, your assigned mechanic
+                      {mechanicContactHint ??
+                        `${booking.mechanic.ownerFullName}, your assigned mechanic`}
                     </Text>
                   </View>
                   {mechPhone ? (

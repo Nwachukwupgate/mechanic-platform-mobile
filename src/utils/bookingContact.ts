@@ -6,12 +6,14 @@ type BookingContactGate = {
   inspectionPaidAt?: string | Date | null
 }
 
-/** Phone numbers unlock after the customer accepts/pays the mechanic's fee (standard quote or inspection). */
+const ACTIVE_CONTACT_STATUSES = new Set(['ACCEPTED', 'IN_PROGRESS'])
+
+/** Phone unlocks after fee acceptance and only while the job is active (not after work concludes). */
 export function canShowBookingContactPhone(
   booking: BookingContactGate | null | undefined,
 ): boolean {
   if (!booking?.mechanicId) return false
-  if (booking.status === 'REQUESTED') return false
+  if (!booking.status || !ACTIVE_CONTACT_STATUSES.has(booking.status)) return false
 
   const isInspection = booking.acceptedQuote?.quoteType === 'INSPECTION'
   if (isInspection) {
@@ -19,6 +21,31 @@ export function canShowBookingContactPhone(
   }
 
   return Boolean(booking.acceptedQuoteId)
+}
+
+const CONCLUDED_STATUSES = new Set(['DONE', 'PAID', 'DELIVERED', 'EXPIRED'])
+
+export function bookingContactLockedHint(
+  booking: BookingContactGate | null | undefined,
+  role: 'mechanic' | 'customer',
+): string | null {
+  if (!booking?.mechanicId || canShowBookingContactPhone(booking)) return null
+  const party = role === 'mechanic' ? 'Customer' : 'Mechanic'
+  if (booking.status && CONCLUDED_STATUSES.has(booking.status)) {
+    return `${party} phone is no longer available after the job is concluded.`
+  }
+  const isInspection = booking.acceptedQuote?.quoteType === 'INSPECTION'
+  if (isInspection && !booking.inspectionPaidAt) {
+    return role === 'mechanic'
+      ? 'Customer phone unlocks after they pay the inspection fee.'
+      : 'Mechanic phone unlocks after you pay the inspection fee.'
+  }
+  if (booking.status === 'REQUESTED' || !booking.acceptedQuoteId) {
+    return role === 'mechanic'
+      ? 'Customer phone unlocks after they accept your quote.'
+      : 'Mechanic phone unlocks after you accept their quote.'
+  }
+  return null
 }
 
 export function customerPhone(u: unknown): string | undefined {
