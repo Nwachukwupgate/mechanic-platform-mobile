@@ -349,6 +349,14 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
         ? Number(booking.estimatedCost)
         : null
   const custPhone = canShowBookingContactPhone(booking) ? customerPhone(booking.user) : undefined
+  const contactLockedHint =
+    !custPhone && booking.mechanicId === currentUserId
+      ? isInspectionJob && !booking.inspectionPaidAt
+        ? 'Customer phone unlocks after they pay the inspection fee.'
+        : status === 'REQUESTED' || !booking.acceptedQuoteId
+          ? 'Customer phone unlocks after they accept your quote.'
+          : null
+      : null
 
   return (
     <View style={styles.container}>
@@ -399,7 +407,8 @@ export function MechanicBookingDetailScreen({ route, navigation }: { route: any;
                         'Customer'}
                     </Text>
                     <Text style={styles.mechSub} numberOfLines={2}>
-                      Customer on this booking, coordinate timing and access here
+                      {contactLockedHint ??
+                        'Customer on this booking, coordinate timing and access here'}
                     </Text>
                   </View>
                   {custPhone ? (

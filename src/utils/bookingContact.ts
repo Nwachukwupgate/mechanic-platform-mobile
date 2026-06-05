@@ -1,5 +1,24 @@
-export function canShowBookingContactPhone(booking: { status?: string } | null | undefined): boolean {
-  return Boolean(booking?.status)
+type BookingContactGate = {
+  status?: string
+  mechanicId?: string | null
+  acceptedQuoteId?: string | null
+  acceptedQuote?: { quoteType?: string } | null
+  inspectionPaidAt?: string | Date | null
+}
+
+/** Phone numbers unlock after the customer accepts/pays the mechanic's fee (standard quote or inspection). */
+export function canShowBookingContactPhone(
+  booking: BookingContactGate | null | undefined,
+): boolean {
+  if (!booking?.mechanicId) return false
+  if (booking.status === 'REQUESTED') return false
+
+  const isInspection = booking.acceptedQuote?.quoteType === 'INSPECTION'
+  if (isInspection) {
+    return Boolean(booking.inspectionPaidAt)
+  }
+
+  return Boolean(booking.acceptedQuoteId)
 }
 
 export function customerPhone(u: unknown): string | undefined {

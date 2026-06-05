@@ -25,7 +25,7 @@ import { AnimatedFadeIn } from '../../components/AnimatedFadeIn'
 import { HeroDecorativeRings } from '../../components/HeroDecorativeRings'
 import { getGreetingLine } from '../../utils/greeting'
 import { bookingStatusBadgeColors, bookingStatusLabel } from '../../utils/bookingStatusBadge'
-import { customerPhone } from '../../utils/bookingContact'
+import { canShowBookingContactPhone, customerPhone } from '../../utils/bookingContact'
 import { layout } from '../../theme/layout'
 import { Button } from '../../components/Button'
 import { DashboardActionTile } from '../../components/DashboardActionTile'
@@ -238,7 +238,7 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             onSeeAll={() => navigation.navigate('Bookings')}
           />
           {openPreview.map((b: any) => {
-            const custPhone = customerPhone(b.user)
+            const custPhone = canShowBookingContactPhone(b) ? customerPhone(b.user) : undefined
             return (
             <TouchableOpacity
               key={b.id}
@@ -302,7 +302,7 @@ export function MechanicDashboardScreen({ navigation }: { navigation: any }) {
             onSeeAll={() => navigation.navigate('Bookings')}
           />
           {pendingPreview.map((b: any) => {
-            const custPhone = customerPhone(b.user)
+            const custPhone = canShowBookingContactPhone(b) ? customerPhone(b.user) : undefined
             return (
             <TouchableOpacity
               key={b.id}
